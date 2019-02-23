@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 
 namespace MiJia
 {
+    #region Gateway Helper routines
     public class DeviceInfo
     {
         public string Cmd { get; set; }
@@ -32,7 +33,7 @@ namespace MiJia
         //public AqaraGatewayConfig[] Gateways { get; set; }
     }
 
-    class Gateway
+    public class Gateway
     {
         public string MulticastIP { get; set; } = "224.0.0.50";
         public int MulticastPort { get; set; } = 4321;
@@ -104,7 +105,7 @@ namespace MiJia
             }
 
             return (result);
-        }   
+        }
 
         public async Task<IList<string>> GetDevice()
         {
@@ -148,4 +149,22 @@ namespace MiJia
             return (result);
         }
     }
+    #endregion
+
+    public enum ConditionMode { AND, OR, NOR, XOR };
+    public class Condition<T>
+    {
+        public ConditionMode Mode;
+        public KeyValuePair<string, T> Param { get; set; }
+    }
+
+    public enum ActionMode { Close, Minimize, Maximize, Mute };
+    public class Action<T>
+    {
+        public string Name { get; set; }
+        public ActionMode Mode { get; set; }
+        public IList<Condition<T>> Conditions { get; set; }
+        public IList<string> Param { get; set; }
+    }
+
 }

@@ -51,6 +51,8 @@
             this.edResult.Location = new System.Drawing.Point(12, 12);
             this.edResult.Multiline = true;
             this.edResult.Name = "edResult";
+            this.edResult.ReadOnly = true;
+            this.edResult.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.edResult.Size = new System.Drawing.Size(509, 339);
             this.edResult.TabIndex = 1;
             // 
