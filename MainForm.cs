@@ -1,37 +1,44 @@
-﻿using System;
+﻿using AutoIt;
+using Elton.Aqara;
+using KnownFolderPaths;
+using Microsoft.CodeAnalysis.Scripting;
+using Microsoft.CodeAnalysis.Scripting.CSharp;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Elton.Aqara;
-using KnownFolderPaths;
-using System.IO;
-using AutoIt;
-using System.Runtime.InteropServices;
 
 namespace MiJia
 {
     public partial class MainForm : Form
     {
-        string APPFOLDER = Path.GetDirectoryName(Application.ExecutablePath);
-        string SKYFOLDER = Path.Combine(KnownFolders.GetPath(KnownFolder.SkyDrive), @"ApplicationData\ConnectedHome");
-        string DOCFOLDER = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), @"Elton\ConnectedHome\");
-        string USERNAME = Environment.UserName;
+        internal string APPFOLDER = Path.GetDirectoryName(Application.ExecutablePath);
+        internal string SKYFOLDER = Path.Combine(KnownFolders.GetPath(KnownFolder.SkyDrive), @"ApplicationData\ConnectedHome");
+        internal string DOCFOLDER = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), @"Elton\ConnectedHome\");
+        internal string USERNAME = Environment.UserName;
 
-        AqaraClient client = null;
-        Timer timerRefresh = null;
-        bool DOOR_CLOSE = false;
-        bool MOTION = false;
+        //static public Dictionary<string, KeyValuePair<string, string>> DEVICE_STATES = new Dictionary<string, KeyValuePair<string, string>>();
+        public Dictionary<string, string> DEVICE_STATES = new Dictionary<string, string>();
+        public Dictionary<string, DEVICE> Devices = new Dictionary<string, DEVICE>();
+
+        internal AqaraClient client = null;
+        internal Timer timerRefresh = null;
+        internal bool DOOR_CLOSE = false;
+        internal bool MOTION = false;
 
         private Gateway gw = new Gateway();
 
         #region Kill Process
-        internal bool KillProcess(string processName)
+        internal static bool KillProcess(string processName)
         {
             bool result = true;
 
@@ -50,7 +57,7 @@ namespace MiJia
             return (result);
         }
 
-        internal bool KillProcess(int pid)
+        internal static bool KillProcess(int pid)
         {
             bool result = true;
 
@@ -65,7 +72,7 @@ namespace MiJia
             return (result);
         }
 
-        internal void KillProcess(string[] processNames)
+        internal static void KillProcess(string[] processNames)
         {
             foreach (var processName in processNames)
             {
@@ -97,7 +104,7 @@ namespace MiJia
         [DllImport("user32.dll")]
         public static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
 
-        internal void Monitor(bool on)
+        internal static void Monitor(bool on)
         {
             var handle = AutoItX.WinGetHandle("[CLASS:Progman]");
             if (handle != IntPtr.Zero)
@@ -109,6 +116,96 @@ namespace MiJia
             }
         }
         #endregion
+
+        internal string scriptContext = string.Empty;
+        internal ScriptOptions scriptOptions = ScriptOptions.Default;
+        //internal Script script;
+
+        internal ScriptOptions InitScriptEngine()
+        {
+            scriptOptions = ScriptOptions.Default;
+            scriptOptions = scriptOptions.AddSearchPaths(APPFOLDER);
+            //options = options.AddReferences(AppDomain.CurrentDomain.GetAssemblies());
+            scriptOptions = scriptOptions.AddReferences(new Assembly[] {
+                    Assembly.GetAssembly(typeof(Path)),
+                    Assembly.GetAssembly(typeof(AutoItX)),
+                    Assembly.GetAssembly(typeof(JsonConvert)),
+                    Assembly.GetAssembly(typeof(AqaraDevice)),
+                    Assembly.GetAssembly(GetType()),
+                    Assembly.GetAssembly(typeof(System.Dynamic.DynamicObject)),  // System.Code
+                    Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
+                    Assembly.GetAssembly(typeof(System.Dynamic.ExpandoObject))  // System.Dynamic                    
+                });
+            scriptOptions = scriptOptions.AddNamespaces(new string[] {
+                    "System",
+                    "System.Dynamic",
+                    "AutoIt",
+                    "Newtonsoft.Json",
+                    "Elton.Aqara",
+                    "MiJia",
+                });
+            //options = options.AddReferences(
+            //    Assembly.GetAssembly(typeof(Path)),
+            //    Assembly.GetAssembly(typeof(AutoItX)),
+            //    Assembly.GetAssembly(typeof(JsonConvert)),
+            //    Assembly.GetAssembly(typeof(AqaraDevice)),
+            //    Assembly.GetAssembly(GetType()),
+            //    Assembly.GetAssembly(typeof(System.Dynamic.DynamicObject)),  // System.Code
+            //    Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
+            //    Assembly.GetAssembly(typeof(System.Dynamic.ExpandoObject))  // System.Dynamic                    
+            //);
+            //options = options.AddNamespaces(
+            //    "System",
+            //    "System.Dynamic",
+            //    "AutoIt",
+            //    "Newtonsoft.Json",
+            //    "Elton.Aqara",
+            //    "MiJia"
+            //);
+
+            var sf = Path.Combine(APPFOLDER, "actions.csx");
+            if (File.Exists(sf))
+                scriptContext = File.ReadAllText(sf);
+
+            return (scriptOptions);
+        }
+
+        internal ScriptState RunScript()
+        {
+            ScriptState result = null;
+
+            var gateway = client.Gateways.Values.FirstOrDefault();
+            if (gateway == null)
+            {
+                edResult.Text = string.Empty;
+            }
+            else
+            {
+                foreach (var device in gateway.Devices.Values)
+                {
+                    if (!DEVICE_STATES.ContainsKey(device.Name)) DEVICE_STATES[device.Name] = string.Empty;
+                    if (!Devices.ContainsKey(device.Name))
+                        Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device };
+                }
+
+                try
+                {
+                    var globals = new Globals()
+                    {
+                        Device = Devices,
+                        DEVICE_STATE = DEVICE_STATES,
+                        DEVICE_LIST = gateway.Devices,
+                    };
+                    result = CSharpScript.Run(scriptContext, scriptOptions, globals);
+                }
+                catch (Exception ex)
+                {
+                    edResult.Text += ex.Message;
+                }
+            }
+
+            return (result);
+        }
 
         public MainForm()
         {
@@ -148,10 +245,21 @@ namespace MiJia
 
             if (USERNAME.StartsWith("netch", StringComparison.CurrentCultureIgnoreCase)) btnTest.Visible = true;
             else btnTest.Visible = false;
+
+            InitScriptEngine();
         }
 
         private void DeviceStateChanged(object sender, StateChangedEventArgs e)
         {
+            DEVICE_STATES[e.Device.Name] = e.NewData;
+            if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
+            {
+                Devices[e.Device.Name].State = e.NewData;
+                Devices[e.Device.Name].Info = e.Device;
+            }
+            else
+                Devices[e.Device.Name] = new DEVICE() { State = e.NewData, Info = e.Device };
+
             if (e.Device.Name.Equals("走道-人体传感器", StringComparison.CurrentCulture))
             {
                 if (e.StateName.Equals("status", StringComparison.CurrentCultureIgnoreCase) && 
@@ -195,32 +303,88 @@ namespace MiJia
                     sb.AppendLine();
                 }
                 edResult.Text = sb.ToString();
-            }
 
-            if (MOTION && USERNAME.StartsWith("netch", StringComparison.CurrentCultureIgnoreCase))
-            {
-                KillProcess(new string[] { "mpc-be64.exe", "zPlayer UWP.exe", "mangameeya.exe", "comicsviewer.exe", });
-                //Task.Run(() => { KillProcess(new string[] { "mpc-be64.exe", "zPlayer UWP.exe", "mangameeya.exe", "comicsviewer.exe", }); });
-                MOTION = false;
+
             }
-            if (DOOR_CLOSE)
-            {
-                Monitor(false);
-                DOOR_CLOSE = false;
-            }
+            RunScript();
+
+            //if (MOTION && USERNAME.StartsWith("netch", StringComparison.CurrentCultureIgnoreCase))
+            //{
+            //    KillProcess(new string[] { "mpc-be64.exe", "zPlayer UWP.exe", "mangameeya.exe", "comicsviewer.exe", });
+            //    //Task.Run(() => { KillProcess(new string[] { "mpc-be64.exe", "zPlayer UWP.exe", "mangameeya.exe", "comicsviewer.exe", }); });
+            //    MOTION = false;
+            //}
+            //if (DOOR_CLOSE)
+            //{
+            //    Monitor(false);
+            //    DOOR_CLOSE = false;
+            //}
         }
 
-        private async void btnTest_Click(object sender, EventArgs e)
+        private void btnTest_Click(object sender, EventArgs e)
         {
-            var devices = await gw.GetDevice();
-            edResult.Text += string.Join(Environment.NewLine, devices);
+            RunScript();
+        }
 
-            foreach (var deviceId in devices)
+        private void btnReloadScript_Click(object sender, EventArgs e)
+        {
+            //InitScriptEngine();
+            var sf = Path.Combine(APPFOLDER, "actions.csx");
+            if (File.Exists(sf))
+                scriptContext = File.ReadAllText(sf);
+        }
+
+        private void btnEditScript_Click(object sender, EventArgs e)
+        {
+            var sf = Path.Combine(APPFOLDER, "actions.csx");
+            if (File.Exists(sf))
             {
-                var deviceInfo = await gw.GetDevice(deviceId);
-                edResult.Text += string.Join(Environment.NewLine, deviceInfo);
+                var ret = AutoItX.RunWait($"notepad2 /s cs {sf}", APPFOLDER);
+                if (ret == 0) scriptContext = File.ReadAllText(sf);
+                else MessageBox.Show("notepad2 run failed!");
+            }
+        }
+    }
+
+    public class DEVICE
+    {
+        public string State { get; set; } = string.Empty;
+        public AqaraDevice Info { get; set; }
+
+        public void Reset()
+        {
+            State = string.Empty;
+        }
+    }
+
+    public class Globals
+    {
+        public Dictionary<string, DEVICE> Device = new Dictionary<string, DEVICE>();
+        public Dictionary<string, string> DEVICE_STATE = new Dictionary<string, string>();
+        public Dictionary<string, AqaraDevice> DEVICE_LIST = new Dictionary<string, AqaraDevice>();
+
+        public void Reset()
+        {
+            foreach(var device in Device)
+            {
+                device.Value.Reset();
             }
         }
 
+        public void Kill(string[] processList)
+        {
+            MainForm.KillProcess(processList);
+        }
+
+        public void Monitor(bool on)
+        {
+            MainForm.Monitor(on);
+        }
+
+        public void Mute()
+        {
+            AutoItX.Send("{VOLUME_MUTE}");
+        }
     }
+
 }

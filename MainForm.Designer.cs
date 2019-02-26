@@ -30,16 +30,18 @@
         {
             this.btnTest = new System.Windows.Forms.Button();
             this.edResult = new System.Windows.Forms.TextBox();
+            this.btnReloadScript = new System.Windows.Forms.Button();
+            this.btnEditScript = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // btnTest
             // 
             this.btnTest.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.btnTest.Location = new System.Drawing.Point(224, 374);
+            this.btnTest.Location = new System.Drawing.Point(12, 374);
             this.btnTest.Name = "btnTest";
             this.btnTest.Size = new System.Drawing.Size(75, 23);
             this.btnTest.TabIndex = 0;
-            this.btnTest.Text = "Test";
+            this.btnTest.Text = "Test Script";
             this.btnTest.UseVisualStyleBackColor = true;
             this.btnTest.Click += new System.EventHandler(this.btnTest_Click);
             // 
@@ -53,14 +55,38 @@
             this.edResult.Name = "edResult";
             this.edResult.ReadOnly = true;
             this.edResult.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.edResult.Size = new System.Drawing.Size(509, 339);
+            this.edResult.Size = new System.Drawing.Size(509, 347);
             this.edResult.TabIndex = 1;
+            // 
+            // btnReloadScript
+            // 
+            this.btnReloadScript.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
+            this.btnReloadScript.Location = new System.Drawing.Point(446, 374);
+            this.btnReloadScript.Name = "btnReloadScript";
+            this.btnReloadScript.Size = new System.Drawing.Size(75, 23);
+            this.btnReloadScript.TabIndex = 2;
+            this.btnReloadScript.Text = "Reload Script";
+            this.btnReloadScript.UseVisualStyleBackColor = true;
+            this.btnReloadScript.Click += new System.EventHandler(this.btnReloadScript_Click);
+            // 
+            // btnEditScript
+            // 
+            this.btnEditScript.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
+            this.btnEditScript.Location = new System.Drawing.Point(365, 374);
+            this.btnEditScript.Name = "btnEditScript";
+            this.btnEditScript.Size = new System.Drawing.Size(75, 23);
+            this.btnEditScript.TabIndex = 3;
+            this.btnEditScript.Text = "Edit Script";
+            this.btnEditScript.UseVisualStyleBackColor = true;
+            this.btnEditScript.Click += new System.EventHandler(this.btnEditScript_Click);
             // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(533, 409);
+            this.Controls.Add(this.btnEditScript);
+            this.Controls.Add(this.btnReloadScript);
             this.Controls.Add(this.edResult);
             this.Controls.Add(this.btnTest);
             this.Name = "MainForm";
@@ -75,6 +101,8 @@
 
         private System.Windows.Forms.Button btnTest;
         private System.Windows.Forms.TextBox edResult;
+        private System.Windows.Forms.Button btnReloadScript;
+        private System.Windows.Forms.Button btnEditScript;
     }
 }
 
