@@ -218,6 +218,14 @@ namespace MiJia
                     new object[] { value });
             }
         }
+
+        public static void Update(this Control control, string text)
+        {
+            control.Invoke((MethodInvoker)delegate {
+                // Running on the UI thread
+                control.Text = text;
+            });
+        }
     }
 
     public class ScriptEngine
@@ -317,7 +325,7 @@ namespace MiJia
             var gateway = client.Gateways.Values.FirstOrDefault();
             if (gateway == null)
             {
-                if (Logger is TextBox) Logger.Text = string.Empty;
+                if (Logger is TextBox) Logger.Update(string.Empty); //Logger.Text = string.Empty;
             }
             else
             {
@@ -338,7 +346,8 @@ namespace MiJia
                         }
                         sb.AppendLine();
                     }
-                    Logger.Text = sb.ToString();
+                    Logger.Update(sb.ToString());
+                    //Logger.Text = sb.ToString();
                 }
             }
             await RunScript();
@@ -387,7 +396,9 @@ namespace MiJia
         private bool sciptRunning = false;
         private ScriptOptions scriptOptions = ScriptOptions.Default;
         public string ScriptContext { get; set; } = string.Empty;
-        //internal Script script;
+        private Script script;
+        private Globals globals = new Globals();
+        private System.Threading.CancellationToken cancelToken = new System.Threading.CancellationToken();
 
         internal ScriptOptions InitScriptEngine()
         {
@@ -435,9 +446,16 @@ namespace MiJia
 
             var sf = Path.Combine(APPFOLDER, "actions.csx");
             if (File.Exists(sf))
-                ScriptContext = File.ReadAllText(sf);
+                Load(File.ReadAllText(sf));
 
             return (scriptOptions);
+        }
+
+        public void Load(string context = "")
+        {
+            if(!string.IsNullOrEmpty(context)) ScriptContext = context;
+            script = CSharpScript.Create(ScriptContext, scriptOptions, typeof(Globals));
+            script.Compile();
         }
 
         internal void Init(string basepath, string configFile, TextBox logger)
@@ -456,8 +474,9 @@ namespace MiJia
             var gateway = client.Gateways.Values.FirstOrDefault();
             if (gateway == null)
             {
-                if(Logger is TextBox)
-                    Logger.SetPropertyThreadSafe(() => Logger.Text, string.Empty);
+                if (Logger is TextBox)
+                    Logger.Update(string.Empty);
+                    //Logger.SetPropertyThreadSafe(() => Logger.Text, string.Empty);
             }
             else
             {
@@ -471,11 +490,12 @@ namespace MiJia
 
                 try
                 {
-                    var globals = new Globals()
-                    {
-                        Device = Devices,
-                    };
-                    result = await CSharpScript.RunAsync(ScriptContext, scriptOptions, globals);
+                    globals.Device = Devices;
+
+                    if (!(script is Script)) Load();
+                    result = await script.RunAsync(globals, cancelToken);
+
+                    //result = await CSharpScript.RunAsync(ScriptContext, scriptOptions, globals);
                     if (AutoReset) globals.Reset();
 
                     StringBuilder sb = new StringBuilder();
@@ -487,12 +507,14 @@ namespace MiJia
                         sb.AppendLine($"{v.Name} = {v.Value}");
                     }
                     if (Logger is TextBox)
-                        Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + sb.ToString());
+                        Logger.Update(Logger.Text + sb.ToString());
+                        //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + sb.ToString());
                 }
                 catch (Exception ex)
                 {
                     if (Logger is TextBox)
-                        Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + ex.Message);
+                        Logger.Update(Logger.Text + ex.Message);
+                        //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + ex.Message);
                 }
             }
 
