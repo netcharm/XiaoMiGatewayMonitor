@@ -235,6 +235,7 @@ namespace MiJia
         private string DOCFOLDER = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), @"Elton\ConnectedHome\");
         private string USERNAME = Environment.UserName;
 
+        public bool Pausing { get; set; } = false;
         public TextBox Logger { get; set; } = null;
 
         #region Kill Process
@@ -350,7 +351,8 @@ namespace MiJia
                     //Logger.Text = sb.ToString();
                 }
             }
-            await RunScript();
+            if(!Pausing)
+                await RunScript();
         }
 
         private AqaraConfig config = null;
@@ -368,7 +370,8 @@ namespace MiJia
             else
                 Devices[e.Device.Name] = new DEVICE() { State = e.NewData, Info = e.Device };
 
-            await RunScript();
+            if (!Pausing)
+                await RunScript();
         }
 
         internal void InitMiJiaGateway(string basepath, string configFile)

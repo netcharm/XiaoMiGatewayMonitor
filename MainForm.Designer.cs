@@ -32,12 +32,13 @@
             this.edResult = new System.Windows.Forms.TextBox();
             this.btnReloadScript = new System.Windows.Forms.Button();
             this.btnEditScript = new System.Windows.Forms.Button();
+            this.chkPause = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // btnTest
             // 
-            this.btnTest.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.btnTest.Location = new System.Drawing.Point(12, 374);
+            this.btnTest.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnTest.Location = new System.Drawing.Point(12, 426);
             this.btnTest.Name = "btnTest";
             this.btnTest.Size = new System.Drawing.Size(75, 23);
             this.btnTest.TabIndex = 0;
@@ -55,13 +56,13 @@
             this.edResult.Name = "edResult";
             this.edResult.ReadOnly = true;
             this.edResult.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.edResult.Size = new System.Drawing.Size(509, 347);
+            this.edResult.Size = new System.Drawing.Size(460, 399);
             this.edResult.TabIndex = 1;
             // 
             // btnReloadScript
             // 
-            this.btnReloadScript.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.btnReloadScript.Location = new System.Drawing.Point(446, 374);
+            this.btnReloadScript.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnReloadScript.Location = new System.Drawing.Point(397, 426);
             this.btnReloadScript.Name = "btnReloadScript";
             this.btnReloadScript.Size = new System.Drawing.Size(75, 23);
             this.btnReloadScript.TabIndex = 2;
@@ -71,8 +72,8 @@
             // 
             // btnEditScript
             // 
-            this.btnEditScript.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.btnEditScript.Location = new System.Drawing.Point(365, 374);
+            this.btnEditScript.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnEditScript.Location = new System.Drawing.Point(316, 426);
             this.btnEditScript.Name = "btnEditScript";
             this.btnEditScript.Size = new System.Drawing.Size(75, 23);
             this.btnEditScript.TabIndex = 3;
@@ -80,15 +81,29 @@
             this.btnEditScript.UseVisualStyleBackColor = true;
             this.btnEditScript.Click += new System.EventHandler(this.btnEditScript_Click);
             // 
+            // chkPause
+            // 
+            this.chkPause.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.chkPause.AutoEllipsis = true;
+            this.chkPause.Location = new System.Drawing.Point(238, 425);
+            this.chkPause.Name = "chkPause";
+            this.chkPause.Size = new System.Drawing.Size(72, 23);
+            this.chkPause.TabIndex = 4;
+            this.chkPause.Text = "Pausing";
+            this.chkPause.UseVisualStyleBackColor = true;
+            this.chkPause.CheckStateChanged += new System.EventHandler(this.chkPause_CheckStateChanged);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(533, 409);
+            this.ClientSize = new System.Drawing.Size(484, 461);
+            this.Controls.Add(this.chkPause);
             this.Controls.Add(this.btnEditScript);
             this.Controls.Add(this.btnReloadScript);
             this.Controls.Add(this.edResult);
             this.Controls.Add(this.btnTest);
+            this.MinimumSize = new System.Drawing.Size(400, 300);
             this.Name = "MainForm";
             this.Text = "MiJia Monitor";
             this.Load += new System.EventHandler(this.MainForm_Load);
@@ -103,6 +118,7 @@
         private System.Windows.Forms.TextBox edResult;
         private System.Windows.Forms.Button btnReloadScript;
         private System.Windows.Forms.Button btnEditScript;
+        private System.Windows.Forms.CheckBox chkPause;
     }
 }
 

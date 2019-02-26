@@ -73,6 +73,11 @@ namespace MiJia
 #endif
             }
         }
+
+        private void chkPause_CheckStateChanged(object sender, EventArgs e)
+        {
+            if (engine is ScriptEngine) engine.Pausing = chkPause.Checked;
+        }
     }
 
 }
