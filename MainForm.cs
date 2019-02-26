@@ -1,8 +1,8 @@
 ﻿using AutoIt;
 using Elton.Aqara;
 using KnownFolderPaths;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
-using Microsoft.CodeAnalysis.Scripting.CSharp;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -124,7 +124,7 @@ namespace MiJia
         internal ScriptOptions InitScriptEngine()
         {
             scriptOptions = ScriptOptions.Default;
-            scriptOptions = scriptOptions.AddSearchPaths(APPFOLDER);
+            //scriptOptions = scriptOptions.AddSearchPaths(APPFOLDER);
             //options = options.AddReferences(AppDomain.CurrentDomain.GetAssemblies());
             scriptOptions = scriptOptions.AddReferences(new Assembly[] {
                     Assembly.GetAssembly(typeof(Path)),
@@ -136,7 +136,8 @@ namespace MiJia
                     Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
                     Assembly.GetAssembly(typeof(System.Dynamic.ExpandoObject))  // System.Dynamic                    
                 });
-            scriptOptions = scriptOptions.AddNamespaces(new string[] {
+            scriptOptions = scriptOptions.AddImports(new string[] {
+            //scriptOptions = scriptOptions.AddNamespaces(new string[] {
                     "System",
                     "System.Dynamic",
                     "AutoIt",
@@ -170,7 +171,7 @@ namespace MiJia
             return (scriptOptions);
         }
 
-        internal ScriptState RunScript(bool AutoReset = false)
+        internal async Task<ScriptState> RunScript(bool AutoReset = false)
         {
             ScriptState result = null;
 
@@ -198,7 +199,7 @@ namespace MiJia
                         //DEVICE_STATE = DEVICE_STATES,
                         //DEVICE_LIST = gateway.Devices,
                     };
-                    result = CSharpScript.Run(scriptContext, scriptOptions, globals);
+                    result = await CSharpScript.RunAsync(scriptContext, scriptOptions, globals);
                     if (AutoReset) globals.Reset();
 
                     StringBuilder sb = new StringBuilder();
@@ -262,7 +263,7 @@ namespace MiJia
             InitScriptEngine();
         }
 
-        private void DeviceStateChanged(object sender, StateChangedEventArgs e)
+        private async void DeviceStateChanged(object sender, StateChangedEventArgs e)
         {
             //DEVICE_STATES[e.Device.Name] = e.NewData;
             if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
@@ -290,10 +291,10 @@ namespace MiJia
             //        DOOR_CLOSE = true;
             //    }
             //}
-            RunScript();
+            await RunScript();
         }
 
-        private void TimerRefresh_Tick(object sender, EventArgs e)
+        private async void TimerRefresh_Tick(object sender, EventArgs e)
         {
             Focus();
 
@@ -321,12 +322,12 @@ namespace MiJia
                 }
                 edResult.Text = sb.ToString();
             }
-            RunScript();
+            await RunScript();
         }
 
-        private void btnTest_Click(object sender, EventArgs e)
+        private async void btnTest_Click(object sender, EventArgs e)
         {
-            RunScript(true);
+            await RunScript(true);
         }
 
         private void btnReloadScript_Click(object sender, EventArgs e)
