@@ -26,8 +26,6 @@ namespace MiJia
         internal string DOCFOLDER = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), @"Elton\ConnectedHome\");
         internal string USERNAME = Environment.UserName;
 
-        //static public Dictionary<string, KeyValuePair<string, string>> DEVICE_STATES = new Dictionary<string, KeyValuePair<string, string>>();
-        //public Dictionary<string, string> DEVICE_STATES = new Dictionary<string, string>();
         public Dictionary<string, DEVICE> Devices = new Dictionary<string, DEVICE>();
 
         internal AqaraClient client = null;
@@ -124,7 +122,6 @@ namespace MiJia
         internal ScriptOptions InitScriptEngine()
         {
             scriptOptions = ScriptOptions.Default;
-            //scriptOptions = scriptOptions.AddSearchPaths(APPFOLDER);
             //options = options.AddReferences(AppDomain.CurrentDomain.GetAssemblies());
             scriptOptions = scriptOptions.AddReferences(new Assembly[] {
                     Assembly.GetAssembly(typeof(Path)),
@@ -184,7 +181,6 @@ namespace MiJia
             {
                 foreach (var device in gateway.Devices.Values)
                 {
-                    //if (!DEVICE_STATES.ContainsKey(device.Name)) DEVICE_STATES[device.Name] = string.Empty;
                     if (!Devices.ContainsKey(device.Name))
                         Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device, StateDuration = 0 };
                     else
@@ -196,8 +192,6 @@ namespace MiJia
                     var globals = new Globals()
                     {
                         Device = Devices,
-                        //DEVICE_STATE = DEVICE_STATES,
-                        //DEVICE_LIST = gateway.Devices,
                     };
                     result = await CSharpScript.RunAsync(scriptContext, scriptOptions, globals);
                     if (AutoReset) globals.Reset();
@@ -265,7 +259,6 @@ namespace MiJia
 
         private async void DeviceStateChanged(object sender, StateChangedEventArgs e)
         {
-            //DEVICE_STATES[e.Device.Name] = e.NewData;
             if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
             {
                 Devices[e.Device.Name].State = e.NewData;
@@ -275,22 +268,6 @@ namespace MiJia
             else
                 Devices[e.Device.Name] = new DEVICE() { State = e.NewData, Info = e.Device, StateDuration = 0 };
 
-            //if (e.Device.Name.Equals("走道-人体传感器", StringComparison.CurrentCulture))
-            //{
-            //    if (e.StateName.Equals("status", StringComparison.CurrentCultureIgnoreCase) && 
-            //        e.NewData.Equals("motion", StringComparison.CurrentCultureIgnoreCase))
-            //    {
-            //        MOTION = true;
-            //    }
-            //}
-            //else if(e.Device.Name.Equals("书房-门", StringComparison.CurrentCulture))
-            //{
-            //    if (e.StateName.Equals("status", StringComparison.CurrentCultureIgnoreCase) &&
-            //        e.NewData.Equals("close", StringComparison.CurrentCultureIgnoreCase))
-            //    {
-            //        DOOR_CLOSE = true;
-            //    }
-            //}
             await RunScript();
         }
 
@@ -369,8 +346,6 @@ namespace MiJia
     public class Globals
     {
         public Dictionary<string, DEVICE> Device = new Dictionary<string, DEVICE>();
-        //public Dictionary<string, string> DEVICE_STATE = new Dictionary<string, string>();
-        //public Dictionary<string, AqaraDevice> DEVICE_LIST = new Dictionary<string, AqaraDevice>();
 
         public void Reset()
         {
