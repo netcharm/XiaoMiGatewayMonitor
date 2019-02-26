@@ -27,7 +27,7 @@ namespace MiJia
         internal string USERNAME = Environment.UserName;
 
         //static public Dictionary<string, KeyValuePair<string, string>> DEVICE_STATES = new Dictionary<string, KeyValuePair<string, string>>();
-        public Dictionary<string, string> DEVICE_STATES = new Dictionary<string, string>();
+        //public Dictionary<string, string> DEVICE_STATES = new Dictionary<string, string>();
         public Dictionary<string, DEVICE> Devices = new Dictionary<string, DEVICE>();
 
         internal AqaraClient client = null;
@@ -170,7 +170,7 @@ namespace MiJia
             return (scriptOptions);
         }
 
-        internal ScriptState RunScript()
+        internal ScriptState RunScript(bool AutoReset = false)
         {
             ScriptState result = null;
 
@@ -183,9 +183,11 @@ namespace MiJia
             {
                 foreach (var device in gateway.Devices.Values)
                 {
-                    if (!DEVICE_STATES.ContainsKey(device.Name)) DEVICE_STATES[device.Name] = string.Empty;
+                    //if (!DEVICE_STATES.ContainsKey(device.Name)) DEVICE_STATES[device.Name] = string.Empty;
                     if (!Devices.ContainsKey(device.Name))
-                        Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device };
+                        Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device, StateDuration = 0 };
+                    else
+                        Devices[device.Name].StateDuration++;
                 }
 
                 try
@@ -193,10 +195,21 @@ namespace MiJia
                     var globals = new Globals()
                     {
                         Device = Devices,
-                        DEVICE_STATE = DEVICE_STATES,
-                        DEVICE_LIST = gateway.Devices,
+                        //DEVICE_STATE = DEVICE_STATES,
+                        //DEVICE_LIST = gateway.Devices,
                     };
                     result = CSharpScript.Run(scriptContext, scriptOptions, globals);
+                    if (AutoReset) globals.Reset();
+
+                    StringBuilder sb = new StringBuilder();
+                    sb.AppendLine("--------------------------------");
+                    foreach (var v in result.Variables)
+                    {
+                        if (v.Name.Equals("Device", StringComparison.CurrentCultureIgnoreCase)) continue;
+                        //sb.AppendLine($"{v.Name} = {v.Value}, {v.Type}");
+                        sb.AppendLine($"{v.Name} = {v.Value}");
+                    }
+                    edResult.Text += sb.ToString();
                 }
                 catch (Exception ex)
                 {
@@ -242,44 +255,48 @@ namespace MiJia
             timerRefresh.Interval = 1000;
             timerRefresh.Tick += TimerRefresh_Tick;
             timerRefresh.Start();
-
+#if DEBUG
             if (USERNAME.StartsWith("netch", StringComparison.CurrentCultureIgnoreCase)) btnTest.Visible = true;
             else btnTest.Visible = false;
-
+#endif
             InitScriptEngine();
         }
 
         private void DeviceStateChanged(object sender, StateChangedEventArgs e)
         {
-            DEVICE_STATES[e.Device.Name] = e.NewData;
+            //DEVICE_STATES[e.Device.Name] = e.NewData;
             if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
             {
                 Devices[e.Device.Name].State = e.NewData;
                 Devices[e.Device.Name].Info = e.Device;
+                Devices[e.Device.Name].StateDuration = 0;
             }
             else
-                Devices[e.Device.Name] = new DEVICE() { State = e.NewData, Info = e.Device };
+                Devices[e.Device.Name] = new DEVICE() { State = e.NewData, Info = e.Device, StateDuration = 0 };
 
-            if (e.Device.Name.Equals("走道-人体传感器", StringComparison.CurrentCulture))
-            {
-                if (e.StateName.Equals("status", StringComparison.CurrentCultureIgnoreCase) && 
-                    e.NewData.Equals("motion", StringComparison.CurrentCultureIgnoreCase))
-                {
-                    MOTION = true;
-                }
-            }
-            else if(e.Device.Name.Equals("书房-门", StringComparison.CurrentCulture))
-            {
-                if (e.StateName.Equals("status", StringComparison.CurrentCultureIgnoreCase) &&
-                    e.NewData.Equals("close", StringComparison.CurrentCultureIgnoreCase))
-                {
-                    DOOR_CLOSE = true;
-                }
-            }
+            //if (e.Device.Name.Equals("走道-人体传感器", StringComparison.CurrentCulture))
+            //{
+            //    if (e.StateName.Equals("status", StringComparison.CurrentCultureIgnoreCase) && 
+            //        e.NewData.Equals("motion", StringComparison.CurrentCultureIgnoreCase))
+            //    {
+            //        MOTION = true;
+            //    }
+            //}
+            //else if(e.Device.Name.Equals("书房-门", StringComparison.CurrentCulture))
+            //{
+            //    if (e.StateName.Equals("status", StringComparison.CurrentCultureIgnoreCase) &&
+            //        e.NewData.Equals("close", StringComparison.CurrentCultureIgnoreCase))
+            //    {
+            //        DOOR_CLOSE = true;
+            //    }
+            //}
+            RunScript();
         }
 
         private void TimerRefresh_Tick(object sender, EventArgs e)
         {
+            Focus();
+
             var gateway = client.Gateways.Values.FirstOrDefault();
             if (gateway == null)
             {
@@ -303,27 +320,13 @@ namespace MiJia
                     sb.AppendLine();
                 }
                 edResult.Text = sb.ToString();
-
-
             }
             RunScript();
-
-            //if (MOTION && USERNAME.StartsWith("netch", StringComparison.CurrentCultureIgnoreCase))
-            //{
-            //    KillProcess(new string[] { "mpc-be64.exe", "zPlayer UWP.exe", "mangameeya.exe", "comicsviewer.exe", });
-            //    //Task.Run(() => { KillProcess(new string[] { "mpc-be64.exe", "zPlayer UWP.exe", "mangameeya.exe", "comicsviewer.exe", }); });
-            //    MOTION = false;
-            //}
-            //if (DOOR_CLOSE)
-            //{
-            //    Monitor(false);
-            //    DOOR_CLOSE = false;
-            //}
         }
 
         private void btnTest_Click(object sender, EventArgs e)
         {
-            RunScript();
+            RunScript(true);
         }
 
         private void btnReloadScript_Click(object sender, EventArgs e)
@@ -339,9 +342,13 @@ namespace MiJia
             var sf = Path.Combine(APPFOLDER, "actions.csx");
             if (File.Exists(sf))
             {
+#if !DEBUG
+                AutoItX.Run($"notepad2 /s cs {sf}", APPFOLDER);
+#else
                 var ret = AutoItX.RunWait($"notepad2 /s cs {sf}", APPFOLDER);
                 if (ret == 0) scriptContext = File.ReadAllText(sf);
                 else MessageBox.Show("notepad2 run failed!");
+#endif
             }
         }
     }
@@ -349,6 +356,7 @@ namespace MiJia
     public class DEVICE
     {
         public string State { get; set; } = string.Empty;
+        public uint StateDuration { get; set; } = 0;
         public AqaraDevice Info { get; set; }
 
         public void Reset()
@@ -360,8 +368,8 @@ namespace MiJia
     public class Globals
     {
         public Dictionary<string, DEVICE> Device = new Dictionary<string, DEVICE>();
-        public Dictionary<string, string> DEVICE_STATE = new Dictionary<string, string>();
-        public Dictionary<string, AqaraDevice> DEVICE_LIST = new Dictionary<string, AqaraDevice>();
+        //public Dictionary<string, string> DEVICE_STATE = new Dictionary<string, string>();
+        //public Dictionary<string, AqaraDevice> DEVICE_LIST = new Dictionary<string, AqaraDevice>();
 
         public void Reset()
         {
@@ -369,6 +377,29 @@ namespace MiJia
             {
                 device.Value.Reset();
             }
+        }
+
+        public void Minimize(string window)
+        {
+            AutoItX.WinSetState($"[REGEXPTITLE:(?i){window}]", "", AutoItX.SW_MINIMIZE);
+        }
+
+        public void Minimize(string[] windows)
+        {
+            foreach(var win in windows)
+            {
+                Minimize(win);
+            }
+        }
+
+        public void Kill(int pid)
+        {
+            MainForm.KillProcess(pid);
+        }
+
+        public void Kill(string process)
+        {
+            MainForm.KillProcess(process);
         }
 
         public void Kill(string[] processList)
