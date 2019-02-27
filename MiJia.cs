@@ -9,6 +9,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -17,6 +18,7 @@ using Elton.Aqara;
 using KnownFolderPaths;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
+using Microsoft.CodeAnalysis.Scripting.Hosting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -330,6 +332,14 @@ namespace MiJia
             }
             else
             {
+                foreach (var device in gateway.Devices.Values)
+                {
+                    if (!Devices.ContainsKey(device.Name))
+                        Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device };
+                    else
+                        Devices[device.Name].StateDuration++;
+                }
+
                 if (Logger is TextBox)
                 {
                     var sb = new StringBuilder();
@@ -400,6 +410,7 @@ namespace MiJia
         private ScriptOptions scriptOptions = ScriptOptions.Default;
         public string ScriptContext { get; set; } = string.Empty;
         private Script script;
+        private InteractiveAssemblyLoader loader = new InteractiveAssemblyLoader();
         private Globals globals = new Globals();
         private System.Threading.CancellationToken cancelToken = new System.Threading.CancellationToken();
 
@@ -415,37 +426,25 @@ namespace MiJia
                     Assembly.GetCallingAssembly(),
                     Assembly.GetEntryAssembly(),
                     Assembly.GetExecutingAssembly(),
+                    Assembly.GetAssembly(typeof(System.Globalization.CultureInfo)),
+                    Assembly.GetAssembly(typeof(Math)),
+                    Assembly.GetAssembly(typeof(Regex)),
                     Assembly.GetAssembly(typeof(System.Dynamic.DynamicObject)),  // System.Code
                     Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
                     Assembly.GetAssembly(typeof(System.Dynamic.ExpandoObject))  // System.Dynamic                    
                 });
             scriptOptions = scriptOptions.AddImports(new string[] {
-            //scriptOptions = scriptOptions.AddNamespaces(new string[] {
                     "System",
                     "System.Dynamic",
+                    "System.Globalization",
+                    "System.IO",
+                    "System.Math",
+                    "System.Text.RegularExpressions",
                     "AutoIt",
                     "Newtonsoft.Json",
                     "Elton.Aqara",
                     "MiJia",
                 });
-            //options = options.AddReferences(
-            //    Assembly.GetAssembly(typeof(Path)),
-            //    Assembly.GetAssembly(typeof(AutoItX)),
-            //    Assembly.GetAssembly(typeof(JsonConvert)),
-            //    Assembly.GetAssembly(typeof(AqaraDevice)),
-            //    Assembly.GetAssembly(GetType()),
-            //    Assembly.GetAssembly(typeof(System.Dynamic.DynamicObject)),  // System.Code
-            //    Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
-            //    Assembly.GetAssembly(typeof(System.Dynamic.ExpandoObject))  // System.Dynamic                    
-            //);
-            //options = options.AddNamespaces(
-            //    "System",
-            //    "System.Dynamic",
-            //    "AutoIt",
-            //    "Newtonsoft.Json",
-            //    "Elton.Aqara",
-            //    "MiJia"
-            //);
 
             var sf = Path.Combine(APPFOLDER, "actions.csx");
             if (File.Exists(sf))
@@ -457,7 +456,7 @@ namespace MiJia
         public void Load(string context = "")
         {
             if(!string.IsNullOrEmpty(context)) ScriptContext = context;
-            script = CSharpScript.Create(ScriptContext, scriptOptions, typeof(Globals));
+            script = CSharpScript.Create(ScriptContext, scriptOptions, typeof(Globals), loader);
             script.Compile();
         }
 
@@ -483,17 +482,9 @@ namespace MiJia
             }
             else
             {
-                foreach (var device in gateway.Devices.Values)
-                {
-                    if (!Devices.ContainsKey(device.Name))
-                        Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device };
-                    else
-                        Devices[device.Name].StateDuration++;
-                }
-
                 try
                 {
-                    globals.Device = Devices;
+                    globals.device = Devices;
 
                     if (!(script is Script)) Load();
                     result = await script.RunAsync(globals, cancelToken);
@@ -542,7 +533,18 @@ namespace MiJia
 
     public class Globals
     {
-        public Dictionary<string, DEVICE> Device = new Dictionary<string, DEVICE>();
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+
+        private const int SW_SHOWNORMAL = 1;
+        private const int SW_SHOWMINIMIZED = 2;
+        private const int SW_SHOWMAXIMIZED = 3;
+
+        private bool InternalPlay = false;
+        private NAudio.Wave.WaveOut waveOut = new NAudio.Wave.WaveOut();
+
+        internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
+        public Dictionary<string, DEVICE> Device { get { return (device); } }
 
         public void Reset(string device = "*")
         {
@@ -558,7 +560,18 @@ namespace MiJia
             if (string.IsNullOrEmpty(window) || window.Equals("*"))
                 AutoItX.WinMinimizeAll();
             else
-                AutoItX.WinSetState($"[REGEXPTITLE:(?i){window}]", "", AutoItX.SW_MINIMIZE);
+            {
+                AutoItX.WinSetState($@"[REGEXPTITLE:(?i){window}]", "", AutoItX.SW_MINIMIZE);
+                //if (AutoItX.IsAdmin() == 1)
+                //    AutoItX.WinSetState($@"[REGEXPTITLE:(?i){window}]", "", AutoItX.SW_MINIMIZE);
+                //else
+                //{
+                //    var handle = AutoItX.WinGetHandle($@"[REGEXPTITLE:(?i){window}]");
+                //    if (handle == IntPtr.Zero) return;
+                //    if (AutoItX.WinGetState(handle) != AutoItX.SW_MINIMIZE)
+                //        ShowWindowAsync(handle, SW_SHOWMINIMIZED);
+                //}
+            }               
         }
 
         public void Minimize(string[] windows)
@@ -658,5 +671,55 @@ namespace MiJia
             Mute(false, device);
         }
 
+        public void MediaPlay(string media="")
+        {
+            if (string.IsNullOrEmpty(media))
+            {
+                AutoItX.Send("{MEDIA_STOP}");
+                AutoItX.Send("{MEDIA_PLAY_PAUSE}");
+                InternalPlay = false;
+            }
+            else
+            {
+                if (waveOut.PlaybackState != NAudio.Wave.PlaybackState.Stopped) waveOut.Stop();
+                if (File.Exists(media) && waveOut is NAudio.Wave.WaveOut)
+                {
+                    NAudio.Wave.WaveStream audio = new NAudio.Wave.AudioFileReader(media);
+                    if (audio is NAudio.Wave.WaveStream)
+                    {
+                        waveOut.Init(audio);
+                        waveOut.Play();
+                        InternalPlay = true;
+                    }
+                }
+            }
+        }
+
+        public void MediaPause()
+        {
+            if (InternalPlay)
+                AutoItX.Send("{MEDIA_PLAY_PAUSE}");
+            else
+            {
+                if (waveOut is NAudio.Wave.WaveOut)
+                {
+                    if (waveOut.PlaybackState == NAudio.Wave.PlaybackState.Playing) waveOut.Pause();
+                }
+            }
+        }
+
+        public void MediaStop()
+        {
+            if (InternalPlay)
+                AutoItX.Send("{MEDIA_STOP}");
+            else
+            {
+                if(waveOut is NAudio.Wave.WaveOut)
+                {
+                    if (waveOut.PlaybackState != NAudio.Wave.PlaybackState.Stopped) waveOut.Stop();
+                    InternalPlay = false;
+                }
+            }
+        }
     }
 }
