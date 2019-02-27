@@ -358,7 +358,6 @@ namespace MiJia
                         sb.AppendLine();
                     }
                     Logger.Update(sb.ToString());
-                    //Logger.Text = sb.ToString();
                 }
             }
             if(!Pausing)
@@ -380,8 +379,7 @@ namespace MiJia
             else
                 Devices[e.Device.Name] = new DEVICE() { State = e.NewData, Info = e.Device };
 
-            if (!Pausing)
-                await RunScript();
+            if (!Pausing) await RunScript();
         }
 
         internal void InitMiJiaGateway(string basepath, string configFile)
@@ -407,12 +405,19 @@ namespace MiJia
 
         #region CSharp Script routines
         private bool sciptRunning = false;
-        private ScriptOptions scriptOptions = ScriptOptions.Default;
-        public string ScriptContext { get; set; } = string.Empty;
-        private Script script;
-        private InteractiveAssemblyLoader loader = new InteractiveAssemblyLoader();
+        private string scriptContext = string.Empty;
+        public string ScriptContext
+        {
+            get { return (scriptContext); }
+            set { Load(value); }
+        }
+
         private Globals globals = new Globals();
         private System.Threading.CancellationToken cancelToken = new System.Threading.CancellationToken();
+
+        private Script script;
+        private InteractiveAssemblyLoader loader = new InteractiveAssemblyLoader();
+        private ScriptOptions scriptOptions = ScriptOptions.Default;
 
         internal ScriptOptions InitScriptEngine()
         {
@@ -455,8 +460,8 @@ namespace MiJia
 
         public void Load(string context = "")
         {
-            if(!string.IsNullOrEmpty(context)) ScriptContext = context;
-            script = CSharpScript.Create(ScriptContext, scriptOptions, typeof(Globals), loader);
+            if(!string.IsNullOrEmpty(context)) scriptContext = context;
+            script = CSharpScript.Create(scriptContext, scriptOptions, typeof(Globals), loader);
             script.Compile();
         }
 
@@ -467,10 +472,14 @@ namespace MiJia
             if(logger is TextBox) Logger = logger;
         }
 
-        internal async Task<ScriptState> RunScript(bool AutoReset = false)
+        internal async Task<ScriptState> RunScript(bool AutoReset = false, bool IsTest = false)
         {
             ScriptState result = null;
-            if (sciptRunning) return (result);
+            if (sciptRunning || string.IsNullOrEmpty(scriptContext))
+            {
+                return (result);
+            }
+
             sciptRunning = true;
 
             var gateway = client.Gateways.Values.FirstOrDefault();
@@ -485,11 +494,12 @@ namespace MiJia
                 try
                 {
                     globals.device = Devices;
+                    globals.isTest = IsTest;
 
+                    //result = await CSharpScript.RunAsync(ScriptContext, scriptOptions, globals);
                     if (!(script is Script)) Load();
                     result = await script.RunAsync(globals, cancelToken);
 
-                    //result = await CSharpScript.RunAsync(ScriptContext, scriptOptions, globals);
                     if (AutoReset) globals.Reset();
 
                     StringBuilder sb = new StringBuilder();
@@ -533,16 +543,10 @@ namespace MiJia
 
     public class Globals
     {
-        [DllImport("user32.dll")]
-        private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+        internal bool isTest = false;
+        public bool IsTest { get { return (isTest); } }
 
-        private const int SW_SHOWNORMAL = 1;
-        private const int SW_SHOWMINIMIZED = 2;
-        private const int SW_SHOWMAXIMIZED = 3;
-
-        private bool InternalPlay = false;
-        private NAudio.Wave.WaveOut waveOut = new NAudio.Wave.WaveOut();
-
+        #region MiJia Gateway/ZigBee Device
         internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
         public Dictionary<string, DEVICE> Device { get { return (device); } }
 
@@ -550,10 +554,20 @@ namespace MiJia
         {
             foreach (var dev in Device)
             {
-                if (string.IsNullOrEmpty(device) || device.Equals("*") || device.Equals(dev.Key, StringComparison.CurrentCulture))
+                if (string.IsNullOrEmpty(device) || device.Equals("*") || device.Equals(dev.Key, StringComparison.InvariantCulture))
                     dev.Value.Reset();
             }
+            isTest = false;
         }
+        #endregion
+
+        #region Windows routines
+        private const int SW_SHOWNORMAL = 1;
+        private const int SW_SHOWMINIMIZED = 2;
+        private const int SW_SHOWMAXIMIZED = 3;
+
+        [DllImport("user32.dll", CharSet=CharSet.Auto)]
+        private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 
         public void Minimize(string window="*")
         {
@@ -586,7 +600,9 @@ namespace MiJia
                 }
             }
         }
+        #endregion
 
+        #region Process routines
         public void Kill(int pid)
         {
             ScriptEngine.KillProcess(pid);
@@ -601,7 +617,9 @@ namespace MiJia
         {
             ScriptEngine.KillProcess(processList);
         }
+        #endregion
 
+        #region Power routines
         public void Monitor(bool on)
         {
             ScriptEngine.Monitor(on);
@@ -616,6 +634,11 @@ namespace MiJia
         {
             ScriptEngine.Monitor(false);
         }
+        #endregion
+
+        #region Media routines
+        private bool InternalPlay = false;
+        private NAudio.Wave.WaveOut waveOut = new NAudio.Wave.WaveOut();
 
         public void Mute(bool on, string device = "*")
         {
@@ -721,5 +744,6 @@ namespace MiJia
                 }
             }
         }
+        #endregion
     }
 }
