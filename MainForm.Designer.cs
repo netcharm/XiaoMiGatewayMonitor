@@ -105,7 +105,7 @@
             this.Controls.Add(this.btnTest);
             this.MinimumSize = new System.Drawing.Size(400, 300);
             this.Name = "MainForm";
-            this.Text = "MiJia Monitor";
+            this.Text = "MiJia Gateway Monitor";
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.ResumeLayout(false);
             this.PerformLayout();

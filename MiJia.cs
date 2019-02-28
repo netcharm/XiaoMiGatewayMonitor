@@ -241,86 +241,6 @@ namespace MiJia
         public bool Pausing { get; set; } = false;
         public TextBox Logger { get; set; } = null;
 
-        #region Kill Process
-        internal static bool KillProcess(string processName)
-        {
-            bool result = true;
-
-            //Process[] pslist = Process.GetProcesses();
-            var pName = Path.GetFileNameWithoutExtension(processName);
-            Process[] pslist = Process.GetProcessesByName(pName);
-            foreach (var ps in pslist)
-            {
-                if (ps.ProcessName.EndsWith(pName, StringComparison.CurrentCultureIgnoreCase))
-                {
-                    ps.Kill();
-                    System.Media.SystemSounds.Asterisk.Play();
-                }
-            }
-
-            return (result);
-        }
-
-        internal static bool KillProcess(int pid)
-        {
-            bool result = true;
-
-            if (pid > 0)
-            {
-                Process ps = Process.GetProcessById(pid);
-                if (ps is Process)
-                    ps.Kill();
-            }
-            else result = false;
-
-            return (result);
-        }
-
-        internal static void KillProcess(string[] processNames)
-        {
-            foreach (var processName in processNames)
-            {
-                try
-                {
-                    var pid = AutoItX.ProcessExists(processName);
-                    if (pid > 0)
-                    {
-                        var ret = AutoItX.ProcessClose(processName);
-                        if (ret > 0) KillProcess(pid);
-                        //if (ret > 0) KillProcess(processName);
-                    }
-                    //KillProcess(processName);
-                }
-                catch (Exception) { }
-            }
-        }
-        #endregion
-
-        #region Power On/Off Monitor
-        private const int LCI_WM_SYSCommand = 274;
-        private const int LCI_SC_MonitorPower = 61808;
-        private const int LCI_Power_Off = 2;
-        private const int LCI_Power_On = -1;
-
-        //[DllImport("coredll.dll")]
-        //private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        public static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
-
-        internal static void Monitor(bool on)
-        {
-            var handle = AutoItX.WinGetHandle("[CLASS:Progman]");
-            if (handle != IntPtr.Zero)
-            {
-                if (on)
-                    SendMessage(handle.ToInt32(), LCI_WM_SYSCommand, LCI_SC_MonitorPower, LCI_Power_On);
-                else
-                    SendMessage(handle.ToInt32(), LCI_WM_SYSCommand, LCI_SC_MonitorPower, LCI_Power_Off);
-            }
-        }
-        #endregion
-
         #region MiJiaGateway routines
         private Timer timerRefresh = null;
 
@@ -333,30 +253,34 @@ namespace MiJia
             }
             else
             {
+                var maxlen_device = 0;
                 foreach (var device in gateway.Devices.Values)
                 {
                     if (!Devices.ContainsKey(device.Name))
                         Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device };
                     else
                         Devices[device.Name].StateDuration++;
+
+                    var len_device = Encoding.GetEncoding("gbk").GetBytes(device.Name).Length;
+                    if (len_device > maxlen_device) maxlen_device = len_device;
                 }
 
                 if (Logger is TextBox)
                 {
                     var sb = new StringBuilder();
                     sb.AppendLine(gateway.EndPoint?.ToString());
-                    sb.AppendLine(gateway.LatestTimestamp.ToString());
-                    sb.AppendLine(gateway.Token);
+                    sb.AppendLine($"{gateway.LatestTimestamp.ToString()} : {gateway.Token}");
                     sb.AppendLine("--------------------------------");
 
                     foreach (var device in gateway.Devices.Values)
                     {
-                        sb.AppendLine($"{device.Name}");
+                        List<string> psl = new List<string>();
                         foreach (var pair in device.States)
                         {
-                            sb.Append($"{pair.Key} = {pair.Value.Value} ");
+                            psl.Add($"{pair.Key} = {pair.Value.Value}");
                         }
-                        sb.AppendLine();
+                        var padding = new string(' ', maxlen_device - Encoding.GetEncoding("gbk").GetBytes(device.Name).Length);
+                        sb.AppendLine($"{device.Name}{padding}[{string.Join(",", psl)}]");
                     }
                     Logger.Update(sb.ToString());
                 }
@@ -508,8 +432,8 @@ namespace MiJia
                     foreach (var v in result.Variables)
                     {
                         if (v.Name.Equals("Device", StringComparison.CurrentCultureIgnoreCase)) continue;
-                        //sb.AppendLine($"{v.Name} = {v.Value}, {v.Type}");
                         sb.AppendLine($"{v.Name} = {v.Value}");
+                        globals.vars[v.Name] = v.Value;
                     }
                     if (Logger is TextBox)
                         Logger.Update(Logger.Text + sb.ToString());
@@ -548,6 +472,21 @@ namespace MiJia
 
         internal bool isTest = false;
         public bool IsTest { get { return (isTest); } }
+
+        internal Dictionary<string, object> vars = new Dictionary<string, object>();
+        public T GetVar<T>(string vn)
+        {
+            T result = default(T);
+            try
+            {
+                if (vars.ContainsKey(vn)) result = (T)vars[vn];
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            return (result);
+        }
 
         #region MiJia Gateway/ZigBee Device
         internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
@@ -606,36 +545,110 @@ namespace MiJia
         #endregion
 
         #region Process routines
+        #region Kill Process
+        internal static bool KillProcess(string processName)
+        {
+            bool result = true;
+
+            //Process[] pslist = Process.GetProcesses();
+            var pName = Path.GetFileNameWithoutExtension(processName);
+            Process[] pslist = Process.GetProcessesByName(pName);
+            foreach (var ps in pslist)
+            {
+                if (ps.ProcessName.EndsWith(pName, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    ps.Kill();
+                }
+            }
+
+            return (result);
+        }
+
+        internal static bool KillProcess(int pid)
+        {
+            bool result = true;
+
+            if (pid > 0)
+            {
+                Process ps = Process.GetProcessById(pid);
+                if (ps is Process)
+                    ps.Kill();
+            }
+            else result = false;
+
+            return (result);
+        }
+
+        internal static void KillProcess(string[] processNames)
+        {
+            foreach (var processName in processNames)
+            {
+                try
+                {
+                    var pid = AutoItX.ProcessExists(processName);
+                    if (pid > 0)
+                    {
+                        var ret = AutoItX.ProcessClose(processName);
+                        if (ret > 0) KillProcess(pid);
+                        //if (ret > 0) KillProcess(processName);
+                    }
+                    //KillProcess(processName);
+                }
+                catch (Exception) { }
+            }
+        }
+        #endregion
+
         public void Kill(int pid)
         {
-            ScriptEngine.KillProcess(pid);
+            KillProcess(pid);
         }
 
         public void Kill(string process)
         {
-            ScriptEngine.KillProcess(process);
+            KillProcess(process);
         }
 
         public void Kill(string[] processList)
         {
-            ScriptEngine.KillProcess(processList);
+            KillProcess(processList);
         }
         #endregion
 
         #region Power routines
-        public void Monitor(bool on)
+        #region Win32 Power On/Off Monitor
+        private const int LCI_WM_SYSCommand = 274;
+        private const int LCI_SC_MonitorPower = 61808;
+        private const int LCI_Power_Off = 2;
+        private const int LCI_Power_On = -1;
+
+        //[DllImport("coredll.dll")]
+        //private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        public static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
+
+        internal static void Monitor(bool on)
         {
-            ScriptEngine.Monitor(on);
+            var handle = AutoItX.WinGetHandle("[CLASS:Progman]");
+            if (handle != IntPtr.Zero)
+            {
+                if (on)
+                    SendMessage(handle.ToInt32(), LCI_WM_SYSCommand, LCI_SC_MonitorPower, LCI_Power_On);
+                else
+                    SendMessage(handle.ToInt32(), LCI_WM_SYSCommand, LCI_SC_MonitorPower, LCI_Power_Off);
+            }
         }
+        #endregion
 
         public void MonitorOn()
         {
-            ScriptEngine.Monitor(true);
+            Monitor(true);
         }
 
         public void MonitorOff()
         {
-            ScriptEngine.Monitor(false);
+            Monitor(false);
         }
         #endregion
 
@@ -687,9 +700,9 @@ namespace MiJia
                                     {
                                         var title = process.MainWindowTitle;
                                         var pname = process.ProcessName;
-                                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                                        if (//session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
                                             !session.IsSystemSoundsSession &&
-                                            (Regex.IsMatch(title, app, RegexOptions.IgnoreCase) || Regex.IsMatch(pname, app, RegexOptions.IgnoreCase)))
+                                            (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) || Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
                                         {
                                             switch (mode)
                                             {
@@ -866,6 +879,29 @@ namespace MiJia
                     InternalPlay = false;
                 }
             }
+        }
+        
+        public void Beep(string type="")
+        {
+            if (string.IsNullOrEmpty(type))
+                System.Media.SystemSounds.Beep.Play();
+            else if (type.Equals("*"))
+                System.Media.SystemSounds.Asterisk.Play();
+            else if (type.Equals("!"))
+                System.Media.SystemSounds.Exclamation.Play();
+            else if (type.Equals("?"))
+                System.Media.SystemSounds.Question.Play();
+            else if (type.Equals("h", StringComparison.CurrentCultureIgnoreCase))
+                System.Media.SystemSounds.Hand.Play();
+            else
+                System.Media.SystemSounds.Beep.Play();
+        }
+        #endregion
+
+        #region Misc
+        public void Sleep(int ms)
+        {
+            AutoItX.Sleep(ms);
         }
         #endregion
     }
