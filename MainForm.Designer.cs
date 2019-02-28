@@ -58,6 +58,7 @@
             this.edResult.ScrollBars = System.Windows.Forms.ScrollBars.Both;
             this.edResult.Size = new System.Drawing.Size(460, 399);
             this.edResult.TabIndex = 1;
+            this.edResult.WordWrap = false;
             // 
             // btnReloadScript
             // 
@@ -103,6 +104,7 @@
             this.Controls.Add(this.btnReloadScript);
             this.Controls.Add(this.edResult);
             this.Controls.Add(this.btnTest);
+            this.DoubleBuffered = true;
             this.MinimumSize = new System.Drawing.Size(400, 300);
             this.Name = "MainForm";
             this.Text = "MiJia Gateway Monitor";

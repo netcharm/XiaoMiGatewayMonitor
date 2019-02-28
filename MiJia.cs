@@ -229,6 +229,21 @@ namespace MiJia
                 control.Text = text;
             });
         }
+
+        public static string PaddingLeft(this string text, int width, char paddingchar = ' ')
+        {
+            var plen = width - Encoding.GetEncoding("gbk").GetBytes(text).Length;
+            var padding = new string(paddingchar, plen > 0 ? plen : 0);
+            return ($"{padding}{text}");
+        }
+
+        public static string PaddingRight(this string text, int width, char paddingchar = ' ')
+        {
+            var plen = width - Encoding.GetEncoding("gbk").GetBytes(text).Length;
+            var padding = new string(paddingchar, plen > 0 ? plen : 0);
+            return ($"{text}{padding}");
+        }
+
     }
 
     public class ScriptEngine
@@ -270,7 +285,7 @@ namespace MiJia
                     var sb = new StringBuilder();
                     sb.AppendLine(gateway.EndPoint?.ToString());
                     sb.AppendLine($"{gateway.LatestTimestamp.ToString()} : {gateway.Token}");
-                    sb.AppendLine("--------------------------------");
+                    sb.AppendLine("".PaddingRight(72, '-'));
 
                     foreach (var device in gateway.Devices.Values)
                     {
@@ -279,8 +294,7 @@ namespace MiJia
                         {
                             psl.Add($"{pair.Key} = {pair.Value.Value}");
                         }
-                        var padding = new string(' ', maxlen_device - Encoding.GetEncoding("gbk").GetBytes(device.Name).Length);
-                        sb.AppendLine($"{device.Name}{padding}[{string.Join(",", psl)}]");
+                        sb.AppendLine($"{device.Name.PaddingRight(maxlen_device)}[{string.Join(",", psl)}]");
                     }
                     Logger.Update(sb.ToString());
                 }
@@ -428,7 +442,7 @@ namespace MiJia
                     if (AutoReset) globals.Reset();
 
                     StringBuilder sb = new StringBuilder();
-                    sb.AppendLine("--------------------------------");
+                    sb.AppendLine("".PaddingRight(72, '-'));// "--------------------------------");
                     foreach (var v in result.Variables)
                     {
                         if (v.Name.Equals("Device", StringComparison.CurrentCultureIgnoreCase)) continue;
@@ -542,39 +556,85 @@ namespace MiJia
                 }
             }
         }
-        #endregion
-
-        #region Process routines
-        #region Kill Process
-        internal static bool KillProcess(string processName)
+        
+        public Dictionary<IntPtr, string> WinList(string title)
         {
-            bool result = true;
+            Dictionary<IntPtr, string> result = new Dictionary<IntPtr, string>();
 
-            //Process[] pslist = Process.GetProcesses();
-            var pName = Path.GetFileNameWithoutExtension(processName);
-            Process[] pslist = Process.GetProcessesByName(pName);
-            foreach (var ps in pslist)
+            var plist = Process.GetProcesses();
+            foreach(var p in plist)
             {
-                if (ps.ProcessName.EndsWith(pName, StringComparison.CurrentCultureIgnoreCase))
+                var pid = new IntPtr(p.Id);
+                var ptitle = p.MainWindowTitle; // AutoItX.WinGetTitle(pid);
+                var pname = p.ProcessName;
+                if (Regex.IsMatch(pname, $@"{Path.GetFileNameWithoutExtension(title)}", RegexOptions.IgnoreCase) ||
+                    Regex.IsMatch(ptitle, $@"{title}", RegexOptions.IgnoreCase))
                 {
-                    ps.Kill();
+                    if (p.SafeHandle.IsInvalid) continue;
+                    //if(p.MainModule.FileName)
+                    result[pid] = ptitle;
                 }
             }
 
             return (result);
         }
 
+        #endregion
+
+        #region Process routines
+        public void Affinity(int pid, int value=0)
+        {
+            if (pid > 0 && AutoItX.IsAdmin() == 1)
+            {
+                Process proc = Process.GetProcessById(pid);
+                proc.ProcessorAffinity = new IntPtr(value);
+            }            
+        }
+
+        #region Kill Process
         internal static bool KillProcess(int pid)
         {
             bool result = true;
-
-            if (pid > 0)
+            try
             {
-                Process ps = Process.GetProcessById(pid);
-                if (ps is Process)
-                    ps.Kill();
+
+                if (pid > 0)
+                {
+                    Process ps = Process.GetProcessById(pid);
+                    if (ps is Process)
+                        ps.Kill();
+                }
+                else result = false;
             }
-            else result = false;
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return (result);
+        }
+
+        internal static bool KillProcess(string processName)
+        {
+            bool result = true;
+
+            try
+            {
+                //Process[] pslist = Process.GetProcesses();
+                var pName = Path.GetFileNameWithoutExtension(processName);
+                Process[] pslist = Process.GetProcessesByName(pName);
+                foreach (var ps in pslist)
+                {
+                    if (ps.ProcessName.EndsWith(pName, StringComparison.CurrentCultureIgnoreCase))
+                    {
+                        ps.Kill();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
 
             return (result);
         }
@@ -594,25 +654,29 @@ namespace MiJia
                     }
                     //KillProcess(processName);
                 }
-                catch (Exception) { }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
-        #endregion
 
         public void Kill(int pid)
         {
             KillProcess(pid);
         }
 
-        public void Kill(string process)
+        public void Kill(string processName)
         {
-            KillProcess(process);
+            KillProcess(processName);
         }
 
         public void Kill(string[] processList)
         {
             KillProcess(processList);
         }
+        #endregion
+
         #endregion
 
         #region Power routines
@@ -854,7 +918,7 @@ namespace MiJia
             }
         }
 
-        public void MediaPause()
+        public void MediaTogglePause()
         {
             if (InternalPlay)
                 AutoItX.Send("{MEDIA_PLAY_PAUSE}");
