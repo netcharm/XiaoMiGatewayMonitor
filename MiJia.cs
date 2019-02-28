@@ -21,6 +21,7 @@ using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.Scripting.Hosting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NAudio.CoreAudioApi;
 
 namespace MiJia
 {
@@ -543,6 +544,8 @@ namespace MiJia
 
     public class Globals
     {
+        public enum MUTE_MODE { Mute, UnMute, Toggle }
+
         internal bool isTest = false;
         public bool IsTest { get { return (isTest); } }
 
@@ -640,38 +643,75 @@ namespace MiJia
         private bool InternalPlay = false;
         private NAudio.Wave.WaveOut waveOut = new NAudio.Wave.WaveOut();
 
-        public void Mute(bool on, string device = "*")
+        public void MuteApp(MUTE_MODE mode, string app = "")
         {
             try
             {
-                //Instantiate an Enumerator to find audio devices
-                NAudio.CoreAudioApi.MMDeviceEnumerator MMDE = new NAudio.CoreAudioApi.MMDeviceEnumerator();
-                //Get all the devices, no matter what condition or status
-                NAudio.CoreAudioApi.MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(NAudio.CoreAudioApi.DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
-                //Loop through all devices
-                foreach (NAudio.CoreAudioApi.MMDevice dev in DevCol)
+                //AudioSessionManager asman = new AudioSessionManager();
+                //NAudio.Mixer.num
+                //if (NAudio.Mixer.Mixer.NumberOfDevices > 0)
+                //{
+                //    var mixer = new NAudio.Mixer.Mixer(0);
+                //}
+
+                if (string.IsNullOrEmpty(app))
                 {
-                    try
+                    MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    maindev.AudioEndpointVolume.Mute = true;
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
                     {
-                        if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                        try
                         {
-                            //Show us the human understandable name of the device
-#if DEBUG
-                            Debug.Print(dev.FriendlyName);
-#endif
-                            if (string.IsNullOrEmpty(device) || device.Equals("*") || dev.FriendlyName.Equals(device, StringComparison.CurrentCultureIgnoreCase))
+                            if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
                             {
-                                //Mute it
-                                if (on)
-                                    dev.AudioEndpointVolume.Mute = true;
-                                else
-                                    dev.AudioEndpointVolume.Mute = false;
+                                //Show us the human understandable name of the device
+#if DEBUG
+                                Debug.Print(dev.FriendlyName);
+#endif
+                                var sessions = dev.AudioSessionManager.Sessions;
+                                for (int i=0;i<sessions.Count;i++)
+                                {
+                                    var session = sessions[i];
+                                    var pid = session.GetProcessID;
+                                    if (pid == 0) continue;
+                                    var process = Process.GetProcessById((int)pid);
+                                    if (process is Process)
+                                    {
+                                        var title = process.MainWindowTitle;
+                                        var pname = process.ProcessName;
+                                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                                            !session.IsSystemSoundsSession &&
+                                            (Regex.IsMatch(title, app, RegexOptions.IgnoreCase) || Regex.IsMatch(pname, app, RegexOptions.IgnoreCase)))
+                                        {
+                                            switch (mode)
+                                            {
+                                                case MUTE_MODE.Mute:
+                                                    session.SimpleAudioVolume.Mute = true;
+                                                    break;
+                                                case MUTE_MODE.UnMute:
+                                                    session.SimpleAudioVolume.Mute = false;
+                                                    break;
+                                                case MUTE_MODE.Toggle:
+                                                    session.SimpleAudioVolume.Mute = !session.SimpleAudioVolume.Mute;
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-                    catch (Exception)
-                    {
-                        //Do something with exception when an audio endpoint could not be muted
+                        catch (Exception)
+                        {
+                            //Do something with exception when an audio endpoint could not be muted
+                        }
                     }
                 }
             }
@@ -679,19 +719,102 @@ namespace MiJia
             {
                 //When something happend that prevent us to iterate through the devices
             }
+        }
 
+        public void MuteApp(string app = "")
+        {
+            MuteApp(MUTE_MODE.Mute, app);
+        }
+
+        public void UnMuteApp(string app = "")
+        {
+            MuteApp(MUTE_MODE.UnMute, app);
+        }
+
+        public void ToggleMuteApp(string app = "")
+        {
+            MuteApp(MUTE_MODE.Toggle, app);
+        }
+
+        public void Mute(MUTE_MODE mode, string device = "")
+        {
+            try
+            {
+                //AudioSessionManager asman = new AudioSessionManager();
+                //NAudio.Mixer.num
+                //if (NAudio.Mixer.Mixer.NumberOfDevices > 0)
+                //{
+                //    var mixer = new NAudio.Mixer.Mixer(0);
+                //}
+
+                if (string.IsNullOrEmpty(device))
+                {
+                    MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    maindev.AudioEndpointVolume.Mute = true;
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        try
+                        {
+                            if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                            {
+                                //Show us the human understandable name of the device
+#if DEBUG
+                                Debug.Print(dev.FriendlyName);
+#endif
+                                if (device.Equals("*") || dev.FriendlyName.Equals(device, StringComparison.CurrentCultureIgnoreCase))
+                                {
+                                    //Mute it
+                                    switch (mode)
+                                    {
+                                        case MUTE_MODE.Mute:
+                                            dev.AudioEndpointVolume.Mute = true;
+                                            break;
+                                        case MUTE_MODE.UnMute:
+                                            dev.AudioEndpointVolume.Mute = false;
+                                            break;
+                                        case MUTE_MODE.Toggle:
+                                            dev.AudioEndpointVolume.Mute = !dev.AudioEndpointVolume.Mute;
+                                            break;
+                                    }                                       
+                                }
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            //Do something with exception when an audio endpoint could not be muted
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+        }
+
+        public void Mute(string device = "")
+        {
+            Mute(MUTE_MODE.Mute, device);
+        }
+
+        public void UnMute(string device = "")
+        {
+            Mute(MUTE_MODE.UnMute, device);
+        }
+
+        public void ToggleMute(string device = "")
+        {
+            Mute(MUTE_MODE.Toggle, device);
             //AutoItX.Send("{VOLUME_MUTE}");
             //AutoItX.Sleep(10);
-        }
-
-        public void Mute(string device = "*")
-        {
-            Mute(true, device);
-        }
-
-        public void UnMute(string device = "*")
-        {
-            Mute(false, device);
         }
 
         public void MediaPlay(string media="")
