@@ -599,12 +599,14 @@ namespace MiJia
             {
                 if (pid > 0)
                 {
+                    //AutoItX.Sleep(10);
                     Process ps = Process.GetProcessById(pid);
                     if (ps is Process)
                         ps.Kill();
                 }
                 else result = false;
             }
+            catch (ArgumentException) { }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message, "Kill Failed!", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -665,8 +667,9 @@ namespace MiJia
                     var pid = AutoItX.ProcessExists(processName);
                     if (pid > 0)
                     {
-                        var ret = AutoItX.ProcessClose(processName);
-                        if (ret > 0) KillProcess(pid);
+                        KillProcess(pid);
+                        //var ret = AutoItX.ProcessClose(processName);
+                        //if (ret > 0) KillProcess(pid);
                         //if (ret > 0) KillProcess(processName);
                     }
                     //KillProcess(processName);
