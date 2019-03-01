@@ -506,7 +506,7 @@ namespace MiJia
         internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
         public Dictionary<string, DEVICE> Device { get { return (device); } }
 
-        public void Reset(string device = "*")
+        public void Reset(string device = default(string))
         {
             foreach (var dev in Device)
             {
@@ -522,10 +522,10 @@ namespace MiJia
         private const int SW_SHOWMINIMIZED = 2;
         private const int SW_SHOWMAXIMIZED = 3;
 
-        [DllImport("user32.dll", CharSet=CharSet.Auto)]
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 
-        public void Minimize(string window="*")
+        public void Minimize(string window = default(string))
         {
             if (string.IsNullOrEmpty(window) || window.Equals("*"))
                 AutoItX.WinMinimizeAll();
@@ -541,7 +541,7 @@ namespace MiJia
                 //    if (AutoItX.WinGetState(handle) != AutoItX.SW_MINIMIZE)
                 //        ShowWindowAsync(handle, SW_SHOWMINIMIZED);
                 //}
-            }               
+            }
         }
 
         public void Minimize(string[] windows)
@@ -556,13 +556,13 @@ namespace MiJia
                 }
             }
         }
-        
+
         public Dictionary<IntPtr, string> WinList(string title)
         {
             Dictionary<IntPtr, string> result = new Dictionary<IntPtr, string>();
 
             var plist = Process.GetProcesses();
-            foreach(var p in plist)
+            foreach (var p in plist)
             {
                 var pid = new IntPtr(p.Id);
                 var ptitle = p.MainWindowTitle; // AutoItX.WinGetTitle(pid);
@@ -582,13 +582,13 @@ namespace MiJia
         #endregion
 
         #region Process routines
-        public void Affinity(int pid, int value=0)
+        public void Affinity(int pid, int value = 0)
         {
             if (pid > 0 && AutoItX.IsAdmin() == 1)
             {
                 Process proc = Process.GetProcessById(pid);
                 proc.ProcessorAffinity = new IntPtr(value);
-            }            
+            }
         }
 
         #region Kill Process
@@ -597,7 +597,6 @@ namespace MiJia
             bool result = true;
             try
             {
-
                 if (pid > 0)
                 {
                     Process ps = Process.GetProcessById(pid);
@@ -608,7 +607,7 @@ namespace MiJia
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(ex.Message, "Kill Failed!", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             return (result);
@@ -625,10 +624,28 @@ namespace MiJia
                 Process[] pslist = Process.GetProcessesByName(pName);
                 foreach (var ps in pslist)
                 {
-                    if (ps.ProcessName.EndsWith(pName, StringComparison.CurrentCultureIgnoreCase))
+                    try
                     {
-                        ps.Kill();
+                        if (ps.ProcessName.EndsWith(pName, StringComparison.CurrentCultureIgnoreCase))
+                        {
+                            ps.Kill();
+                        }
                     }
+                    catch (Exception) { }
+                }
+                foreach(var process in Process.GetProcesses())
+                {
+                    try
+                    {
+                        var pname = process.ProcessName;
+                        var ptitle = process.MainWindowTitle;
+                        if (Regex.IsMatch(pname, pName, RegexOptions.IgnoreCase) ||
+                           Regex.IsMatch(ptitle, pName, RegexOptions.IgnoreCase))
+                        {
+                            process.Kill();
+                        }
+                    }
+                    catch (Exception) { }
                 }
             }
             catch (Exception ex)
@@ -720,7 +737,7 @@ namespace MiJia
         private bool InternalPlay = false;
         private NAudio.Wave.WaveOut waveOut = new NAudio.Wave.WaveOut();
 
-        public void MuteApp(MUTE_MODE mode, string app = "")
+        public void MuteApp(MUTE_MODE mode, string app = default(string))
         {
             try
             {
@@ -754,7 +771,7 @@ namespace MiJia
                                 Debug.Print(dev.FriendlyName);
 #endif
                                 var sessions = dev.AudioSessionManager.Sessions;
-                                for (int i=0;i<sessions.Count;i++)
+                                for (int i = 0; i < sessions.Count; i++)
                                 {
                                     var session = sessions[i];
                                     var pid = session.GetProcessID;
@@ -798,22 +815,22 @@ namespace MiJia
             }
         }
 
-        public void MuteApp(string app = "")
+        public void MuteApp(string app = default(string))
         {
             MuteApp(MUTE_MODE.Mute, app);
         }
 
-        public void UnMuteApp(string app = "")
+        public void UnMuteApp(string app = default(string))
         {
             MuteApp(MUTE_MODE.UnMute, app);
         }
 
-        public void ToggleMuteApp(string app = "")
+        public void ToggleMuteApp(string app = default(string))
         {
             MuteApp(MUTE_MODE.Toggle, app);
         }
 
-        public void Mute(MUTE_MODE mode, string device = "")
+        public void Mute(MUTE_MODE mode, string device = default(string))
         {
             try
             {
@@ -860,7 +877,7 @@ namespace MiJia
                                         case MUTE_MODE.Toggle:
                                             dev.AudioEndpointVolume.Mute = !dev.AudioEndpointVolume.Mute;
                                             break;
-                                    }                                       
+                                    }
                                 }
                             }
                         }
@@ -877,24 +894,190 @@ namespace MiJia
             }
         }
 
-        public void Mute(string device = "")
+        public void Mute(string device = default(string))
         {
             Mute(MUTE_MODE.Mute, device);
         }
 
-        public void UnMute(string device = "")
+        public void UnMute(string device = default(string))
         {
             Mute(MUTE_MODE.UnMute, device);
         }
 
-        public void ToggleMute(string device = "")
+        public void ToggleMute(string device = default(string))
         {
             Mute(MUTE_MODE.Toggle, device);
             //AutoItX.Send("{VOLUME_MUTE}");
             //AutoItX.Sleep(10);
         }
 
-        public void MediaPlay(string media="")
+        private bool DeviceIsActive(MMDevice dev, string app = default(string))
+        {
+            bool result = false;
+
+            try
+            {
+                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                {
+                    //Show us the human understandable name of the device
+#if DEBUG
+                    Debug.Print(dev.FriendlyName);
+#endif
+                    var sessions = dev.AudioSessionManager.Sessions;
+                    for (int i = 0; i < sessions.Count; i++)
+                    {
+                        var session = sessions[i];
+                        var pid = session.GetProcessID;
+                        if (pid == 0) continue;
+                        var process = Process.GetProcessById((int)pid);
+                        if (process is Process)
+                        {
+                            var title = process.MainWindowTitle;
+                            var pname = process.ProcessName;
+                            if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                                !session.IsSystemSoundsSession &&
+                                (string.IsNullOrEmpty(app) || app.Equals("*") ||
+                                Regex.IsMatch(pname, Path.GetFileNameWithoutExtension(app), RegexOptions.IgnoreCase) ||
+                                Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
+                            {
+                                result = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //Do something with exception when an audio endpoint could not be muted
+            }
+
+            return (result);
+        }
+
+        private bool DeviceIsActive(MMDevice dev, string[] apps)
+        {
+            bool result = false;
+
+            try
+            {
+                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                {
+                    //Show us the human understandable name of the device
+#if DEBUG
+                    Debug.Print(dev.FriendlyName);
+#endif
+                    var sessions = dev.AudioSessionManager.Sessions;
+                    for (int i = 0; i < sessions.Count; i++)
+                    {
+                        var session = sessions[i];
+                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                            !session.IsSystemSoundsSession)
+                        {
+                            if (!(apps is string[]) || apps.Length <= 0) result = true;
+                            else
+                            {
+                                var pid = session.GetProcessID;
+                                if (pid == 0) continue;
+                                var process = Process.GetProcessById((int)pid);
+                                if (process is Process)
+                                {
+                                    var title = process.MainWindowTitle;
+                                    var pname = process.ProcessName;
+                                    foreach (var app in apps)
+                                    {
+                                        if (string.IsNullOrEmpty(app) || app.Equals("*") ||                                            
+                                            Regex.IsMatch(pname, Path.GetFileNameWithoutExtension(app), RegexOptions.IgnoreCase) ||
+                                            Regex.IsMatch(title, app, RegexOptions.IgnoreCase))
+                                        {
+                                            result = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //Do something with exception when an audio endpoint could not be muted
+            }
+
+            return (result);
+        }
+
+        public bool MediaIsActive(string app = default(string))
+        {
+            bool result = false;
+
+            try
+            {
+                if (string.IsNullOrEmpty(app))
+                {
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
+                    result = DeviceIsActive(dev, app);
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        result = DeviceIsActive(dev, app);
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return (result);
+        }
+
+        public bool MediaIsActive(string[] apps)
+        {
+            bool result = false;
+
+            try
+            {
+                if (!(apps is string[]) || apps.Length <= 0)
+                {
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
+                    result = DeviceIsActive(dev, apps);
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        result = DeviceIsActive(dev, apps);
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return (result);
+        }
+
+        public void MediaPlay(string media= default(string))
         {
             if (string.IsNullOrEmpty(media))
             {
@@ -945,7 +1128,7 @@ namespace MiJia
             }
         }
         
-        public void Beep(string type="")
+        public void Beep(string type= default(string))
         {
             if (string.IsNullOrEmpty(type))
                 System.Media.SystemSounds.Beep.Play();
