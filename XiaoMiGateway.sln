@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Elton.Aqara.Win", "..\Elton
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1B17041E-3FF5-40FD-90D2-BD7B9D014AB7}"
 	ProjectSection(SolutionItems) = preProject
-		MIT.txt = MIT.txt
+		LICENSE.md = LICENSE.md
 		Readme.md = Readme.md
 	EndProjectSection
 EndProject
