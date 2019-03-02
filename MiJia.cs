@@ -272,7 +272,7 @@ namespace MiJia
                 foreach (var device in gateway.Devices.Values)
                 {
                     if (!Devices.ContainsKey(device.Name))
-                        Devices[device.Name] = new DEVICE() { State = string.Empty, Info = device };
+                        Devices[device.Name] = new DEVICE() { client = client, Info = device };
                     else
                         Devices[device.Name].StateDuration++;
 
@@ -283,7 +283,7 @@ namespace MiJia
                 if (Logger is TextBox)
                 {
                     var sb = new StringBuilder();
-                    sb.AppendLine(gateway.EndPoint?.ToString());
+                    sb.AppendLine($"{gateway.EndPoint?.ToString()}[{gateway.Id}]]");
                     sb.AppendLine($"{gateway.LatestTimestamp.ToString()} : {gateway.Token}");
                     sb.AppendLine("".PaddingRight(72, '-'));
 
@@ -299,8 +299,7 @@ namespace MiJia
                     Logger.Update(sb.ToString());
                 }
             }
-            if(!Pausing)
-                await RunScript();
+            if(!Pausing) await RunScript();
         }
 
         private AqaraConfig config = null;
@@ -312,11 +311,12 @@ namespace MiJia
             if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
             {
                 Devices[e.Device.Name].State = e.NewData;
+                Devices[e.Device.Name].StateName = e.StateName;
                 Devices[e.Device.Name].Info = e.Device;
                 Devices[e.Device.Name].StateDuration = 0;
             }
             else
-                Devices[e.Device.Name] = new DEVICE() { State = e.NewData, Info = e.Device };
+                Devices[e.Device.Name] = new DEVICE() { client = client, State = e.NewData, StateName = e.StateName, Info = e.Device };
 
             if (!Pausing) await RunScript();
         }
@@ -331,7 +331,7 @@ namespace MiJia
             {
                 config = AqaraConfig.Parse(File.ReadAllText(configFile));
             }
-            client = new AqaraClient(config);
+            client = new AqaraClient(config);           
             client.DeviceStateChanged += DeviceStateChanged;
             Task.Run(() => { client.DoWork(null); });
 
@@ -451,7 +451,7 @@ namespace MiJia
                     }
                     if (Logger is TextBox)
                         Logger.Update(Logger.Text + sb.ToString());
-                        //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + sb.ToString());
+                    //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + sb.ToString());
                 }
                 catch (Exception ex)
                 {
@@ -470,13 +470,35 @@ namespace MiJia
 
     public class DEVICE
     {
-        public string State { get; set; } = string.Empty;
+        internal AqaraClient client = default(AqaraClient);
+        public string State { get; internal set; } = string.Empty;
+        public string StateName { get; internal set; } = string.Empty;
         public uint StateDuration { get; set; } = 0;
-        public AqaraDevice Info { get; set; }
+        public AqaraDevice Info { get; set; } = default(AqaraDevice);
+
+        public void SetState(string key, string value)
+        {
+            if (client is AqaraClient)
+            {
+                List<KeyValuePair<string, string>> states = new List<KeyValuePair<string, string>>();
+                KeyValuePair<string, string> kv = new KeyValuePair<string, string>(key, value);
+                states.Add(kv);
+                SetStates(states);
+            }
+        }
+
+        public void SetStates(IEnumerable<KeyValuePair<string, string>> states)
+        {
+            if (client is AqaraClient && states is IEnumerable<KeyValuePair<string, string>>)
+            {
+                client.SendWriteCommand(Info, states);
+            }
+        }
 
         public void Reset()
         {
             State = string.Empty;
+            StateName = string.Empty;
         }
     }
 
@@ -494,6 +516,7 @@ namespace MiJia
             try
             {
                 if (vars.ContainsKey(vn)) result = (T)vars[vn];
+                else result = default(T);
             }
             catch (Exception ex)
             {
@@ -924,7 +947,7 @@ namespace MiJia
                 {
                     //Show us the human understandable name of the device
 #if DEBUG
-                    Debug.Print(dev.FriendlyName);
+                    //Debug.Print(dev.FriendlyName);
 #endif
                     var sessions = dev.AudioSessionManager.Sessions;
                     for (int i = 0; i < sessions.Count; i++)
@@ -932,7 +955,7 @@ namespace MiJia
                         var session = sessions[i];
                         var pid = session.GetProcessID;
                         if (pid == 0) continue;
-                        var process = Process.GetProcessById((int)pid);
+                        var process = Process.GetProcessById((int)pid, Environment.MachineName);
                         if (process is Process)
                         {
                             var title = process.MainWindowTitle;
@@ -982,7 +1005,7 @@ namespace MiJia
                             {
                                 var pid = session.GetProcessID;
                                 if (pid == 0) continue;
-                                var process = Process.GetProcessById((int)pid);
+                                var process = Process.GetProcessById((int)pid, Environment.MachineName);
                                 if (process is Process)
                                 {
                                     var title = process.MainWindowTitle;
