@@ -504,7 +504,7 @@ namespace MiJia
 
     public class Globals
     {
-        public enum MUTE_MODE { Mute, UnMute, Toggle }
+        public enum MUTE_MODE { Mute, UnMute, Toggle, Background }
 
         internal bool isTest = false;
         public bool IsTest { get { return (isTest); } }
@@ -612,6 +612,51 @@ namespace MiJia
                 Process proc = Process.GetProcessById(pid);
                 proc.ProcessorAffinity = new IntPtr(value);
             }
+        }
+
+        public string ProcessName(int pid)
+        {
+            string result = string.Empty;
+
+            if (pid > 0)//&& AutoItX.IsAdmin() == 1)
+            {
+                Process proc = Process.GetProcessById(pid);
+                if (proc is Process) result = proc.ProcessName;
+            }
+
+            return (result);
+        }
+
+        public string ProcessName(string title)
+        {
+            string result = string.Empty;
+
+            if (!string.IsNullOrEmpty(title))
+            {
+                foreach (var proc in Process.GetProcesses())
+                {
+#if DEBUG
+                    Debug.Print(title);
+#endif
+                    var pname = proc.ProcessName;
+                    if (pname.Equals("ApplicationFrameHost", StringComparison.CurrentCultureIgnoreCase)) continue;
+                    var ptitle = proc.MainWindowTitle;
+                    //if (string.IsNullOrEmpty(ptitle)) continue;
+                    try
+                    {
+                        if (title.Equals(ptitle, StringComparison.InvariantCulture) ||
+                            Regex.IsMatch(pname, $"{title}", RegexOptions.IgnoreCase) ||
+                            (!string.IsNullOrEmpty(ptitle) && Regex.IsMatch(title, $"{ptitle.Trim('*')}", RegexOptions.IgnoreCase)) ||
+                            Regex.IsMatch(ptitle, $"{title}", RegexOptions.IgnoreCase))
+                        {
+                            result = proc.ProcessName;
+                            break;
+                        }
+                    }
+                    catch (Exception) { }
+                }
+            }
+            return (result);
         }
 
         #region Kill Process
@@ -809,10 +854,15 @@ namespace MiJia
                                         var pname = process.ProcessName;
                                         if (//session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
                                             !session.IsSystemSoundsSession &&
-                                            (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) || Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
+                                            (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) || 
+                                            Regex.IsMatch(app, title, RegexOptions.IgnoreCase) || 
+                                            Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
                                         {
                                             switch (mode)
                                             {
+                                                case MUTE_MODE.Background:
+
+                                                    break;
                                                 case MUTE_MODE.Mute:
                                                     session.SimpleAudioVolume.Mute = true;
                                                     break;
@@ -856,6 +906,11 @@ namespace MiJia
             MuteApp(MUTE_MODE.Toggle, app);
         }
 
+        public void BackgroundAppMute(string app = default(string))
+        {
+            MuteApp(MUTE_MODE.Background, app);
+        }
+
         public void Mute(MUTE_MODE mode, string device = default(string))
         {
             try
@@ -894,6 +949,8 @@ namespace MiJia
                                     //Mute it
                                     switch (mode)
                                     {
+                                        case MUTE_MODE.Background:
+                                            break;
                                         case MUTE_MODE.Mute:
                                             dev.AudioEndpointVolume.Mute = true;
                                             break;
@@ -937,6 +994,11 @@ namespace MiJia
             //AutoItX.Sleep(10);
         }
 
+        public void BackgroundMute(string app = default(string))
+        {
+            Mute(MUTE_MODE.Background, app);
+        }
+
         private bool DeviceIsActive(MMDevice dev, string app = default(string))
         {
             bool result = false;
@@ -961,8 +1023,9 @@ namespace MiJia
                             var title = process.MainWindowTitle;
                             var pname = process.ProcessName;
                             if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
-                                !session.IsSystemSoundsSession &&
+                                !session.IsSystemSoundsSession && session.AudioMeterInformation.MasterPeakValue > 0 &&
                                 (string.IsNullOrEmpty(app) || app.Equals("*") ||
+                                pname.Equals(app, StringComparison.InvariantCulture) ||
                                 Regex.IsMatch(pname, Path.GetFileNameWithoutExtension(app), RegexOptions.IgnoreCase) ||
                                 Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
                             {
@@ -1019,6 +1082,88 @@ namespace MiJia
                                             result = true;
                                             break;
                                         }
+                                    }
+                                }
+                            }
+                        }
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //Do something with exception when an audio endpoint could not be muted
+            }
+
+            return (result);
+        }
+
+        private bool DeviceIsActive(MMDevice dev, int app = default(int))
+        {
+            bool result = false;
+
+            try
+            {
+                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                {
+                    //Show us the human understandable name of the device
+#if DEBUG
+                    //Debug.Print(dev.FriendlyName);
+#endif
+                    var sessions = dev.AudioSessionManager.Sessions;
+                    for (int i = 0; i < sessions.Count; i++)
+                    {
+                        var session = sessions[i];
+                        var pid = session.GetProcessID;
+                        if (pid == 0) continue;
+                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                            !session.IsSystemSoundsSession && session.AudioMeterInformation.MasterPeakValue > 0 &&
+                            app > 0 && app == pid)
+                        {
+                            result = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //Do something with exception when an audio endpoint could not be muted
+            }
+
+            return (result);
+        }
+
+        private bool DeviceIsActive(MMDevice dev, int[] apps)
+        {
+            bool result = false;
+
+            try
+            {
+                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                {
+                    //Show us the human understandable name of the device
+#if DEBUG
+                    //Debug.Print(dev.FriendlyName);
+#endif
+                    var sessions = dev.AudioSessionManager.Sessions;
+                    for (int i = 0; i < sessions.Count; i++)
+                    {
+                        var session = sessions[i];
+                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                            !session.IsSystemSoundsSession)
+                        {
+                            if (!(apps is int[]) || apps.Length <= 0) result = true;
+                            else
+                            {
+                                var pid = session.GetProcessID;
+                                if (pid == 0) continue;
+                                foreach (var app in apps)
+                                {
+                                    if (app > 0 && app == pid)
+                                    {
+                                        result = true;
+                                        break;
                                     }
                                 }
                             }
@@ -1103,6 +1248,74 @@ namespace MiJia
             return (result);
         }
 
+        public bool MediaIsActive(int app)
+        {
+            bool result = false;
+
+            try
+            {
+                if (app == 0)
+                {
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
+                    result = DeviceIsActive(dev, app);
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        result = DeviceIsActive(dev, app);
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return (result);
+        }
+
+        public bool MediaIsActive(int[] apps)
+        {
+            bool result = false;
+
+            try
+            {
+                if (!(apps is int[]) || apps.Length <= 0)
+                {
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
+                    result = DeviceIsActive(dev, apps);
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        result = DeviceIsActive(dev, apps);
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return (result);
+        }
+
         public void MediaPlay(string media= default(string))
         {
             if (string.IsNullOrEmpty(media))
@@ -1129,7 +1342,7 @@ namespace MiJia
 
         public void MediaTogglePause()
         {
-            if (InternalPlay)
+            if (!InternalPlay)
                 AutoItX.Send("{MEDIA_PLAY_PAUSE}");
             else
             {
@@ -1142,7 +1355,7 @@ namespace MiJia
 
         public void MediaStop()
         {
-            if (InternalPlay)
+            if (!InternalPlay)
                 AutoItX.Send("{MEDIA_STOP}");
             else
             {
@@ -1153,7 +1366,12 @@ namespace MiJia
                 }
             }
         }
-        
+
+        public void MediaToggleMute()
+        {
+            AutoItX.Send("{VOLUME_MUTE}");
+        }
+
         public void Beep(string type= default(string))
         {
             if (string.IsNullOrEmpty(type))
