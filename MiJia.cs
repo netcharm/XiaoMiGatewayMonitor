@@ -602,6 +602,79 @@ namespace MiJia
             return (result);
         }
 
+        #region UWP Window Process Name : https://stackoverflow.com/a/50554419/1842521
+        internal struct WINDOWINFO
+        {
+            public uint ownerpid;
+            public uint childpid;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowProc lpEnumFunc, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool QueryFullProcessImageName([In]IntPtr hProcess, [In]int dwFlags, [Out]StringBuilder lpExeName, ref int lpdwSize);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern IntPtr OpenProcess(UInt32 dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)]Boolean bInheritHandle, Int32 dwProcessId);
+
+        public delegate bool EnumWindowProc(IntPtr hWnd, IntPtr parameter);
+        delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+        public const uint PROCESS_QUERY_INFORMATION = 0x400;
+        public const uint PROCESS_VM_READ = 0x010;
+
+        private const uint WINEVENT_OUTOFCONTEXT = 0;
+        private const uint EVENT_SYSTEM_FOREGROUND = 3;
+
+        private static string UWP_AppName(IntPtr hWnd, uint pID)
+        {
+            WINDOWINFO windowinfo = new WINDOWINFO();
+            windowinfo.ownerpid = pID;
+            windowinfo.childpid = windowinfo.ownerpid;
+
+            IntPtr pWindowinfo = Marshal.AllocHGlobal(Marshal.SizeOf(windowinfo));
+
+            Marshal.StructureToPtr(windowinfo, pWindowinfo, false);
+
+            EnumWindowProc lpEnumFunc = new EnumWindowProc(EnumChildWindowsCallback);
+            EnumChildWindows(hWnd, lpEnumFunc, pWindowinfo);
+
+            windowinfo = (WINDOWINFO)Marshal.PtrToStructure(pWindowinfo, typeof(WINDOWINFO));
+
+            IntPtr proc;
+            if ((proc = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, (int)windowinfo.childpid)) == IntPtr.Zero) return null;
+
+            int capacity = 2000;
+            StringBuilder sb = new StringBuilder(capacity);
+            QueryFullProcessImageName(proc, 0, sb, ref capacity);
+
+            Marshal.FreeHGlobal(pWindowinfo);
+
+            return sb.ToString(0, capacity);
+        }
+
+        private static bool EnumChildWindowsCallback(IntPtr hWnd, IntPtr lParam)
+        {
+            WINDOWINFO info = (WINDOWINFO)Marshal.PtrToStructure(lParam, typeof(WINDOWINFO));
+
+            uint pID;
+            GetWindowThreadProcessId(hWnd, out pID);
+
+            if (pID != info.ownerpid) info.childpid = pID;
+
+            Marshal.StructureToPtr(info, lParam, true);
+
+            return true;
+        }
+        #endregion
         #endregion
 
         #region Process routines
@@ -638,8 +711,11 @@ namespace MiJia
 #if DEBUG
                     Debug.Print(title);
 #endif
+                    //if (proc.MainWindowHandle == IntPtr.Zero) continue;
+                    if (proc.SessionId == 0) continue;
                     var pname = proc.ProcessName;
-                    if (pname.Equals("ApplicationFrameHost", StringComparison.CurrentCultureIgnoreCase)) continue;
+                    if (pname.Equals("RuntimeBroker", StringComparison.CurrentCultureIgnoreCase)) continue;
+
                     var ptitle = proc.MainWindowTitle;
                     //if (string.IsNullOrEmpty(ptitle)) continue;
                     try
@@ -649,7 +725,10 @@ namespace MiJia
                             (!string.IsNullOrEmpty(ptitle) && Regex.IsMatch(title, $"{ptitle.Trim('*')}", RegexOptions.IgnoreCase)) ||
                             Regex.IsMatch(ptitle, $"{title}", RegexOptions.IgnoreCase))
                         {
-                            result = proc.ProcessName;
+                            if (pname.Equals("ApplicationFrameHost", StringComparison.CurrentCultureIgnoreCase))
+                                result = Path.GetFileNameWithoutExtension(UWP_AppName(proc.MainWindowHandle, (uint)proc.Id));
+                            else
+                                result = proc.ProcessName;
                             break;
                         }
                     }
