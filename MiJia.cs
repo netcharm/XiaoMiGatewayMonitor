@@ -379,10 +379,12 @@ namespace MiJia
                 });
             scriptOptions = scriptOptions.AddImports(new string[] {
                     "System",
+                    "System.Collections.Generic",
                     "System.Dynamic",
                     "System.Globalization",
                     "System.IO",
                     "System.Math",
+                    "System.Text",
                     "System.Text.RegularExpressions",
                     "AutoIt",
                     "Newtonsoft.Json",
@@ -609,32 +611,79 @@ namespace MiJia
             public uint childpid;
         }
 
+        [DllImport("user32.dll", EntryPoint = "FindWindow", CharSet = CharSet.Auto)]
+        private static extern int FindWindow(string sClass, string sWindow);
+
+        [DllImport("user32.dll", EntryPoint = "FindWindowEx", CharSet = CharSet.Auto)]
+        static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("User32.Dll", CharSet = CharSet.Auto)]
+        public static extern int GetClassName(int hwnd, string lpClassName, int nMaxCount);
+
         [DllImport("user32.dll", SetLastError = true)]
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
+        
         [DllImport("user32", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowProc lpEnumFunc, IntPtr lParam);
-
-        [DllImport("user32.dll")]
-        static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+        private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowProc lpEnumFunc, IntPtr lParam);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern bool QueryFullProcessImageName([In]IntPtr hProcess, [In]int dwFlags, [Out]StringBuilder lpExeName, ref int lpdwSize);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern IntPtr OpenProcess(UInt32 dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)]Boolean bInheritHandle, Int32 dwProcessId);
+        private static extern IntPtr OpenProcess(UInt32 dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)]Boolean bInheritHandle, Int32 dwProcessId);
 
-        public delegate bool EnumWindowProc(IntPtr hWnd, IntPtr parameter);
+        private delegate bool EnumWindowProc(IntPtr hWnd, IntPtr parameter);
         delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
-        public const uint PROCESS_QUERY_INFORMATION = 0x400;
-        public const uint PROCESS_VM_READ = 0x010;
+        private const uint PROCESS_QUERY_INFORMATION = 0x400;
+        private const uint PROCESS_VM_READ = 0x010;
 
         private const uint WINEVENT_OUTOFCONTEXT = 0;
         private const uint EVENT_SYSTEM_FOREGROUND = 3;
 
-        private static string UWP_AppName(IntPtr hWnd, uint pID)
+        private static bool EnumChildWindowsCallback(IntPtr hWnd, IntPtr lParam)
+        {
+            WINDOWINFO info = (WINDOWINFO)Marshal.PtrToStructure(lParam, typeof(WINDOWINFO));
+
+            uint pID;
+            GetWindowThreadProcessId(hWnd, out pID);
+
+            if (pID != info.ownerpid) info.childpid = pID;
+
+            Marshal.StructureToPtr(info, lParam, true);
+
+            return true;
+        }
+
+        public List<IntPtr> GetWindowHandles(string classname, IntPtr hParent, int maxCount)
+        {
+            //ManagementClass mngcls = new ManagementClass("Win32_Process");
+            //foreach (ManagementObject instance in mngcls.GetInstances())
+            //{
+            //    Console.Write("ID: " + instance["ProcessId"]);
+            //}
+
+            List<IntPtr> result = new List<IntPtr>();
+            int ct = 0;
+            IntPtr prevChild = IntPtr.Zero;
+            IntPtr currChild = IntPtr.Zero;
+            while (true && ct < maxCount)
+            {
+                //currChild = FindWindowEx(hParent, prevChild, null, null);
+                currChild = FindWindowEx(hParent, prevChild, classname, null);
+                if (currChild == IntPtr.Zero) break;
+                result.Add(currChild);
+                prevChild = currChild;
+                ++ct;
+            }
+            return result;
+        }
+
+        private string UWP_AppName(IntPtr hWnd, uint pID)
         {
             WINDOWINFO windowinfo = new WINDOWINFO();
             windowinfo.ownerpid = pID;
@@ -661,19 +710,66 @@ namespace MiJia
             return sb.ToString(0, capacity);
         }
 
-        private static bool EnumChildWindowsCallback(IntPtr hWnd, IntPtr lParam)
+        private List<string> UWP_AppNames()
         {
-            WINDOWINFO info = (WINDOWINFO)Marshal.PtrToStructure(lParam, typeof(WINDOWINFO));
+            List<string> result = new List<string>();
 
-            uint pID;
-            GetWindowThreadProcessId(hWnd, out pID);
+            var UWPs = GetWindowHandles("Windows.UI.Core.CoreWindow", IntPtr.Zero, 100);
+            foreach (var uwp in UWPs)
+            {
+                uint pid = 0;
+                GetWindowThreadProcessId(uwp, out pid);
+                var up = UWP_AppName(uwp, pid);
+                if (result.Contains(up)) continue;
+                result.Add(up);
+            }
 
-            if (pID != info.ownerpid) info.childpid = pID;
-
-            Marshal.StructureToPtr(info, lParam, true);
-
-            return true;
+            return (result);
         }
+
+        private List<string> UWP_AppNames(string title)
+        {
+            List<string> result = new List<string>();
+
+            var UWPs = GetWindowHandles("Windows.UI.Core.CoreWindow", IntPtr.Zero, 100);
+            foreach (var uwp in UWPs)
+            {
+                uint pid = 0;
+                GetWindowThreadProcessId(uwp, out pid);
+                StringBuilder sb = new StringBuilder(2000);
+                var len = GetWindowText(uwp, sb, 2000);
+                var ut = sb.ToString();
+                var up = UWP_AppName(uwp, pid);
+                if (result.Contains(up)) continue;
+                if (string.IsNullOrEmpty(title) || title.Equals("*") ||
+                    Regex.IsMatch(up, title, RegexOptions.IgnoreCase)||
+                    Regex.IsMatch(ut, title, RegexOptions.IgnoreCase))
+                {
+                    result.Add(up);
+                }
+            }
+
+            return (result);
+        }
+
+        private List<string> UWP_AppNames(uint pID)
+        {
+            List<string> result = new List<string>();
+
+            var Hosts = GetWindowHandles("ApplicationFrameWindow", IntPtr.Zero, 100);
+            foreach (var host in Hosts)
+            {
+                var childs = GetWindowHandles("Windows.UI.Core.CoreWindow", host, 100);
+                if (childs.Count() > 0) {
+                    var pname = UWP_AppName(host, pID);
+                    if(!result.Contains(pname))
+                        result.Add(UWP_AppName(host, pID));
+                }
+            }
+
+            return (result);
+        }
+
         #endregion
         #endregion
 
@@ -682,9 +778,146 @@ namespace MiJia
         {
             if (pid > 0 && AutoItX.IsAdmin() == 1)
             {
-                Process proc = Process.GetProcessById(pid);
-                proc.ProcessorAffinity = new IntPtr(value);
+                Process proc = GetProcessById(pid);
+                if (proc is Process)
+                {
+                    proc.ProcessorAffinity = new IntPtr(value);
+                }
             }
+        }
+
+        public void Affinity(uint pid, int value = 0)
+        {
+            if (pid > 0 && AutoItX.IsAdmin() == 1)
+            {
+                Process proc = GetProcessById(pid);
+                if (proc is Process)
+                {
+                    proc.ProcessorAffinity = new IntPtr(value);
+                }
+            }
+        }
+
+        public Process GetProcessById(int pid)
+        {
+            Process result = null;
+
+            var procs = Process.GetProcesses().Where(p => p.Id == pid);
+            if (procs.Count() > 0)
+            {
+                result = procs.First();
+            }
+
+            return (result);
+        }
+
+        public Process GetProcessById(uint pid)
+        {
+            Process result = null;
+
+            var procs = Process.GetProcesses().Where(p => p.Id == pid);
+            if (procs.Count() > 0)
+            {
+                result = procs.First();
+            }
+
+            return (result);
+        }
+
+        public List<Process> GetProcessByName(string name, bool regex = false)
+        {
+            List<Process> result = null;
+
+            name = Path.GetFileNameWithoutExtension(name);
+            if (regex)
+                result = Process.GetProcesses().Where(p => Regex.IsMatch(p.ProcessName, $"{name}", RegexOptions.IgnoreCase)).ToList();
+            else
+                result = Process.GetProcesses().Where(p => p.ProcessName.Equals(name, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            return (result);
+        }
+
+        public List<Process> GetProcessByName(string[] names, bool regex = false)
+        {
+            List<Process> result = new List<Process>();
+
+            if (regex)
+            {
+                var namelist = $"({string.Join("|", names.Select(s => $"({Path.GetFileNameWithoutExtension(s)})"))})";
+                result = Process.GetProcesses().Where(p => Regex.IsMatch(p.ProcessName, $"{namelist}", RegexOptions.IgnoreCase)).ToList();
+            }
+            else
+            {
+                result = Process.GetProcesses().Where(p => names.Contains(p.ProcessName, StringComparer.OrdinalIgnoreCase)).ToList();
+            }
+
+            return (result);
+        }
+
+        public List<Process> GetProcessByTitle(string title, bool regex = false)
+        {
+            List<Process> result = new List<Process>();
+
+            title = title.Trim('*');
+            if (regex)
+                result = Process.GetProcesses().Where(p => Regex.IsMatch(p.MainWindowTitle, $"{title}", RegexOptions.IgnoreCase)).ToList();
+            else
+                result = Process.GetProcesses().Where(p => p.MainWindowTitle.Equals(title, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            var Hosts = result.Where(p => p.ProcessName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase));
+            if (Hosts.Count() > 0)
+            {
+                var proc = Hosts.First();
+                //var pnames = UWP_AppNames((uint)proc.Id);
+                var pnames = UWP_AppNames(title);
+                foreach (var pname in pnames)
+                {
+                    var uwps = GetProcessByName(pname, regex);
+                    if (uwps.Count() > 0)
+                    {
+                        var app = uwps.First();
+                        if (app.Id != proc.Id && result.Where(p => p.Id == app.Id).Count() == 0) result.Add(app);
+                    }                        
+                }
+                result.Remove(proc);
+            }
+
+            return (result);
+        }
+
+        public List<Process> GetProcessByTitle(string[] titles, bool regex = false)
+        {
+            List<Process> result = null;
+
+            var namelist = $"({string.Join("|", titles.Select(s => $"({s.Trim('*')})"))})";
+            if (regex)
+            {
+                result = Process.GetProcesses().Where(p => Regex.IsMatch(p.MainWindowTitle, $"{namelist}", RegexOptions.IgnoreCase)).ToList();
+            }
+            else
+            {
+                result = Process.GetProcesses().Where(p => titles.Contains(p.MainWindowTitle, StringComparer.OrdinalIgnoreCase)).ToList();
+            }
+
+            var Hosts = result.Where(p => p.ProcessName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase));
+            if (Hosts.Count() > 0)
+            {
+                var proc = Hosts.First();
+                //var pnames = UWP_AppNames((uint)proc.Id);
+                var pnames = UWP_AppNames(namelist);
+                foreach (var pname in pnames)
+                {
+                    var uwps = GetProcessByName(pname, regex);
+                    if (uwps.Count() > 0)
+                    {
+                        var app = uwps.First();
+                        if (app.Id != proc.Id && result.Where(p => p.Id == app.Id).Count() == 0) result.Add(app);
+                    }
+                }
+                result.Remove(proc);
+            }
+
+            return (result);
         }
 
         public string ProcessName(int pid)
@@ -693,7 +926,20 @@ namespace MiJia
 
             if (pid > 0)//&& AutoItX.IsAdmin() == 1)
             {
-                Process proc = Process.GetProcessById(pid);
+                Process proc = GetProcessById(pid);
+                if (proc is Process) result = proc.ProcessName;
+            }
+
+            return (result);
+        }
+
+        public string ProcessName(uint pid)
+        {
+            string result = string.Empty;
+
+            if (pid > 0)//&& AutoItX.IsAdmin() == 1)
+            {
+                Process proc = GetProcessById(pid);
                 if (proc is Process) result = proc.ProcessName;
             }
 
@@ -711,13 +957,11 @@ namespace MiJia
 #if DEBUG
                     Debug.Print(title);
 #endif
-                    //if (proc.MainWindowHandle == IntPtr.Zero) continue;
                     if (proc.SessionId == 0) continue;
                     var pname = proc.ProcessName;
                     if (pname.Equals("RuntimeBroker", StringComparison.CurrentCultureIgnoreCase)) continue;
 
                     var ptitle = proc.MainWindowTitle;
-                    //if (string.IsNullOrEmpty(ptitle)) continue;
                     try
                     {
                         if (title.Equals(ptitle, StringComparison.InvariantCulture) ||
@@ -739,7 +983,7 @@ namespace MiJia
         }
 
         #region Kill Process
-        internal static bool KillProcess(int pid)
+        internal bool KillProcess(int pid)
         {
             bool result = true;
             try
@@ -747,7 +991,7 @@ namespace MiJia
                 if (pid > 0)
                 {
                     //AutoItX.Sleep(10);
-                    Process ps = Process.GetProcessById(pid);
+                    Process ps = GetProcessById(pid);
                     if (ps is Process)
                         ps.Kill();
                 }
@@ -762,7 +1006,30 @@ namespace MiJia
             return (result);
         }
 
-        internal static bool KillProcess(string processName)
+        internal bool KillProcess(uint pid)
+        {
+            bool result = true;
+            try
+            {
+                if (pid > 0)
+                {
+                    //AutoItX.Sleep(10);
+                    Process ps = GetProcessById(pid);
+                    if (ps is Process)
+                        ps.Kill();
+                }
+                else result = false;
+            }
+            catch (ArgumentException) { }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Kill Failed!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return (result);
+        }
+
+        internal bool KillProcess(string processName)
         {
             bool result = true;
 
@@ -805,7 +1072,7 @@ namespace MiJia
             return (result);
         }
 
-        internal static void KillProcess(string[] processNames)
+        internal void KillProcess(string[] processNames)
         {
             foreach (var processName in processNames)
             {
@@ -829,6 +1096,11 @@ namespace MiJia
         }
 
         public void Kill(int pid)
+        {
+            KillProcess(pid);
+        }
+
+        public void Kill(uint pid)
         {
             KillProcess(pid);
         }
@@ -926,7 +1198,7 @@ namespace MiJia
                                     var session = sessions[i];
                                     var pid = session.GetProcessID;
                                     if (pid == 0) continue;
-                                    var process = Process.GetProcessById((int)pid);
+                                    var process = GetProcessById(pid);
                                     if (process is Process)
                                     {
                                         var title = process.MainWindowTitle;
@@ -1096,7 +1368,7 @@ namespace MiJia
                         var session = sessions[i];
                         var pid = session.GetProcessID;
                         if (pid == 0) continue;
-                        var process = Process.GetProcessById((int)pid, Environment.MachineName);
+                        var process = GetProcessById(pid);
                         if (process is Process)
                         {
                             var title = process.MainWindowTitle;
@@ -1147,7 +1419,7 @@ namespace MiJia
                             {
                                 var pid = session.GetProcessID;
                                 if (pid == 0) continue;
-                                var process = Process.GetProcessById((int)pid, Environment.MachineName);
+                                var process = GetProcessById(pid);
                                 if (process is Process)
                                 {
                                     var title = process.MainWindowTitle;
@@ -1280,8 +1552,11 @@ namespace MiJia
                     //Loop through all devices
                     foreach (MMDevice dev in DevCol)
                     {
-                        result = DeviceIsActive(dev, app);
-                        if (result) break;
+                        if (dev.DataFlow == DataFlow.Render && dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                        {
+                            result = DeviceIsActive(dev, app);
+                            if (result) break;
+                        }
                     }
                 }
             }

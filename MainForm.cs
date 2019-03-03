@@ -68,7 +68,8 @@ namespace MiJia
 #if !DEBUG
                 AutoItX.Run($"notepad2 /s cs {sf}", APPFOLDER);
 #else
-                var ret = AutoItX.RunWait($"notepad2 /s cs {sf}", APPFOLDER);
+                var ret = AutoItX.Run($"notepad2 /s cs {sf}", APPFOLDER);
+                //var ret = AutoItX.RunWait($"notepad2 /s cs {sf}", APPFOLDER);
                 if (ret == 0 && engine is ScriptEngine) engine.ScriptContext = File.ReadAllText(sf);
                 else MessageBox.Show("notepad2 run failed!");
 #endif
