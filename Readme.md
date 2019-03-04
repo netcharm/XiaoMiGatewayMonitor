@@ -122,6 +122,7 @@ if(Device["书房门"].State.Equals("close", StringComparison.CurrentCultureIgno
   //if(MediaIsOut(new string[]{"cloudmusic", "wallpaper", "firefox"}))
   if(MediaIsOut())
   {
+	Speak("自动关闭屏幕");
     Mute();
   }
 }

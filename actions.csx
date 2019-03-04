@@ -5,6 +5,7 @@ if (Device["书房门"].State.Equals("close", StringComparison.CurrentCultureIgn
     MonitorOff();
     if (MediaIsOut())
     {
+        Speak("自动关闭屏幕");
         Mute();
     }
 }
