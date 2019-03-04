@@ -537,7 +537,7 @@ namespace MiJia
             Process Info { get; set; } = default(Process);
         }
 
-        private bool IsAdmin = AutoItX.IsAdmin() == 1 ? true : false;
+        public bool IsAdmin { get; set; } = AutoItX.IsAdmin() == 1 ? true : false;
         Dictionary<uint, Process> procs = null;
         private ManagementEventWatcher _watcherStart;
         private ManagementEventWatcher _watcherStop;
