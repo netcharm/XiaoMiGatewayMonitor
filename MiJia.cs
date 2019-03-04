@@ -259,6 +259,21 @@ namespace MiJia
 
         #region MiJiaGateway routines
         private Timer timerRefresh = null;
+        private int interval = 1000;
+        public int Interval
+        {
+            get { return (interval); }
+            set
+            {
+                interval = value;
+                if (timerRefresh is Timer)
+                {
+                    if(timerRefresh.Enabled) timerRefresh.Stop();
+                    timerRefresh.Interval = value;
+                    timerRefresh.Start();
+                }
+            }
+        }
 
         private async void TimerRefresh_Tick(object sender, EventArgs e)
         {
@@ -273,7 +288,11 @@ namespace MiJia
                 foreach (var device in gateway.Devices.Values)
                 {
                     if (!Devices.ContainsKey(device.Name))
-                        Devices[device.Name] = new DEVICE() { client = client, Info = device };
+                        Devices[device.Name] = new DEVICE() {
+                            client = client,
+                            Properties = device.States.ToDictionary(s => s.Key, s => s.Value.Value),
+                            Info = device
+                        };
                     else
                         Devices[device.Name].StateDuration++;
 
@@ -313,11 +332,18 @@ namespace MiJia
             {
                 Devices[e.Device.Name].State = e.NewData;
                 Devices[e.Device.Name].StateName = e.StateName;
+                Devices[e.Device.Name].Properties = e.Device.States.ToDictionary(s => s.Key, s => s.Value.Value);
                 Devices[e.Device.Name].Info = e.Device;
                 Devices[e.Device.Name].StateDuration = 0;
             }
             else
-                Devices[e.Device.Name] = new DEVICE() { client = client, State = e.NewData, StateName = e.StateName, Info = e.Device };
+                Devices[e.Device.Name] = new DEVICE() {
+                    client = client,
+                    State = e.NewData,
+                    Properties = new Dictionary<string, string>(),
+                    StateName = e.StateName,
+                    Info = e.Device
+                };
 
             if (!Pausing) await RunScript();
         }
@@ -337,10 +363,11 @@ namespace MiJia
             Task.Run(() => { client.DoWork(null); });
 
             timerRefresh = new Timer();
-            timerRefresh.Interval = 1000;
             timerRefresh.Tick += TimerRefresh_Tick;
+            timerRefresh.Interval = Interval;
             timerRefresh.Start();
         }
+
         #endregion
 
         #region CSharp Script routines
@@ -477,6 +504,7 @@ namespace MiJia
         public string State { get; internal set; } = string.Empty;
         public string StateName { get; internal set; } = string.Empty;
         public uint StateDuration { get; set; } = 0;
+        public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
         public AqaraDevice Info { get; set; } = default(AqaraDevice);
 
         public void SetState(string key, string value)
@@ -1800,8 +1828,10 @@ namespace MiJia
         {
             AutoItX.Send("{VOLUME_MUTE}");
         }
+        #endregion
 
-        public void Beep(string type= default(string))
+        #region Misc
+        public void Beep(string type = default(string))
         {
             if (string.IsNullOrEmpty(type))
                 System.Media.SystemSounds.Beep.Play();
@@ -1816,12 +1846,85 @@ namespace MiJia
             else
                 System.Media.SystemSounds.Beep.Play();
         }
-        #endregion
 
-        #region Misc
         public void Sleep(int ms)
         {
             AutoItX.Sleep(ms);
+        }
+
+        private System.Speech.Synthesis.SpeechSynthesizer synth = new System.Speech.Synthesis.SpeechSynthesizer() { };
+        private string voice_default = string.Empty;
+        public void Speak(string text)
+        {
+            List<string> lang_cn = new List<string>() { "zh-hans", "zh-cn", "zh" };
+            List<string> lang_tw = new List<string>() { "zh-hant", "zh-tw" };
+            List<string> lang_jp = new List<string>() { "ja-jp", "ja", "jp" };
+            List<string> lang_en = new List<string>() { "en-us", "us", "en" };
+
+            try
+            {
+                if(string.IsNullOrEmpty(voice_default)) voice_default = synth.Voice.Name;
+
+                synth.SelectVoice(voice_default);
+                //
+                // 中文：[\u4e00-\u9fcc, \u3400-\u4db5, \u20000-\u2a6d6, \u2a700-\u2b734, \u2b740-\u2b81d, \uf900-\ufad9, \u2f800-\u2fa1d]
+                // 日文：[\u0800-\u4e00] [\u3041-\u31ff]
+                // 韩文：[\uac00-\ud7ff]
+                //
+                //var m_jp = Regex.Matches(text, @"([\u0800-\u4e00])", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+                //var m_zh = Regex.Matches(text, @"([\u4e00-\u9fbb])", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+                var lang = System.Globalization.CultureInfo.CurrentCulture.IetfLanguageTag.ToLower();
+
+                if (Regex.Matches(text, @"[\u3041-\u31ff]", RegexOptions.Multiline).Count > 0)
+                {
+                    lang = "ja";
+                }
+                else if (Regex.Matches(text, @"[\u4e00-\u9fbb]", RegexOptions.Multiline).Count > 0)
+                {
+                    lang = "zh";
+                }
+
+                // Initialize a new instance of the SpeechSynthesizer.
+                foreach (System.Speech.Synthesis.InstalledVoice voice in synth.GetInstalledVoices())
+                {
+                    System.Speech.Synthesis.VoiceInfo info = voice.VoiceInfo;
+                    var vl = info.Culture.IetfLanguageTag;
+
+                    if (lang_cn.Contains(vl.ToLower()) &&
+                        lang.StartsWith("zh", StringComparison.CurrentCultureIgnoreCase) &&
+                        voice.VoiceInfo.Name.ToLower().Contains("huihui"))
+                    {
+                        synth.SelectVoice(voice.VoiceInfo.Name);
+                        break;
+                    }
+                    else if (lang_jp.Contains(vl.ToLower()) &&
+                        lang.StartsWith("ja", StringComparison.CurrentCultureIgnoreCase) &&
+                        voice.VoiceInfo.Name.ToLower().Contains("haruka"))
+                    {
+                        synth.SelectVoice(voice.VoiceInfo.Name);
+                        break;
+                    }
+                    else if (lang_en.Contains(vl.ToLower()) &&
+                        lang.StartsWith("en", StringComparison.CurrentCultureIgnoreCase) &&
+                        voice.VoiceInfo.Name.ToLower().Contains("zira"))
+                    {
+                        synth.SelectVoice(voice.VoiceInfo.Name);
+                        break;
+                    }
+                }
+
+                // Synchronous
+                //synth.Speak( text );
+                // Asynchronous
+                synth.SpeakAsyncCancelAll();
+                synth.Resume();
+                synth.SpeakAsync(text);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification);
+            }
         }
         #endregion
     }

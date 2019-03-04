@@ -34,6 +34,7 @@ because gateway report the ZigBee device info only.
 1. Add some functions for script global call, for examples:
 	1. Beep (AutoItX not include these methods)
 	1. Sleep
+	1. Speak (call system speech synth, can simple detect japanese/chinese, but not supported mixed languages)
 	1. MonitorOff
 	1. WinList("notepad") (AutoItX not include this method in .net)
 	1. Kill(" firefox$") (process name or title, supoort simple regex syntax)
@@ -139,3 +140,12 @@ RunAsAdmin = IsAdmin;
 var NoMontion_Aisle=$"Duration:{Device["走道人体传感器"].StateDuration}";
 var OpenDoor_Study=$"Duration:{Device["书房门"].StateDuration}";
 ```
+
+## Download
+
+1. Binary
+	1. [Bitbucket](https://bitbucket.org/netcharm/xiaomigatewaymonitor/downloads/)
+1. Source
+	1. [GitHub](https://github.com/netcharm/XiaoMiGatewayMonitor/)
+	1. [Bitbucket](https://bitbucket.org/netcharm/xiaomigatewaymonitor/)
+
