@@ -11,7 +11,7 @@ because gateway report the ZigBee device info only.
 ### Hardware
 
 1. Aqara/XiaoMi/MiJia Gateway
-1. Some ZigBee device attached to gateway above
+1. ZigBee device attached to gateway above
 
 ### Software
 
@@ -73,9 +73,11 @@ Path: `<APP>\config\aqara.json` , gateway and device friendly name info took fro
 Path: `<APP>\actions.csx`
 
 ```csharp
+// Do something when some sensor status changes
+// 当某些传感器状态发生变化时做某些事情
 if(IsTest || Device["走道人体传感器"].State.Equals("motion", StringComparison.CurrentCultureIgnoreCase))
 {
-  Kill(new string[] { "mpc-be64.exe", "zPlayer UWP.exe", });
+  Kill(new string[] { "mplayer.exe", "vlc.exe", "zPlayer UWP.exe", });
 
   var firefox = @"[REGEXPTITLE:(?i) firefox]";
   if(AutoItX.WinExists(firefox) == 1)
@@ -83,10 +85,10 @@ if(IsTest || Device["走道人体传感器"].State.Equals("motion", StringCompar
     var title = AutoItX.WinGetTitle(firefox);
     if(Regex.IsMatch(title, @"((qidian)|(17k))", RegexOptions.IgnoreCase))
     {
-      if(IsTest || AutoItX.IsAdmin() == 1)
+      if(IsTest || IsAdmin)
       {
         // Set Window State / Send method need permissions for app RunAsAdminstrator
-		AutoItX.WinSetState(firefox, "", AutoItX.SW_MAXIMIZE);
+        AutoItX.WinSetState(firefox, "", AutoItX.SW_MAXIMIZE);
         AutoItX.WinActivate(firefox);
         AutoItX.Send("^1");
         AutoItX.Sleep(50);
@@ -95,12 +97,12 @@ if(IsTest || Device["走道人体传感器"].State.Equals("motion", StringCompar
       }
       else
       {
-		// Minimize All Window like Win+M
+        // Minimize All Window like Win+M
         Minimize();
       }
-      //Mute("USB音箱 (JBL Pebbles)");
+      //Mute("USB音箱");
       //Mute();
-      if(MediaIsActive("firefox"))
+      if(MediaIsOut("firefox"))
       {
         MuteApp("firefox");
       }
@@ -116,20 +118,24 @@ if(Device["书房门"].State.Equals("close", StringComparison.CurrentCultureIgno
   MonitorOff();
   //Device["书房门"].Reset();
   //MediaPause();
-  //if(MediasIsActive(new string[]{"cloudmusic", "wallpaper", "firefox"}))
-  if(MediaIsActive())
+  //if(MediaIsOut(new string[]{"cloudmusic", "wallpaper", "firefox"}))
+  if(MediaIsOut())
   {
     Mute();
   }
 }
 
-// Reset all device state
+// Reset the state of each sensor, you must usually have this statement.
+// 重置各传感器的状态, 通常必须有此语句.
 Reset();
 
+// The variable returned by the last run script can be loaded, and 
+// the modified variable will also be returned for the next load.
+// 可以加载上次运行的脚本返回的变量, 修改过变量也将会返回以便下次载入
+var RunAsAdmin = GetVar<string>("RunAsAdmin");
+RunAsAdmin = IsAdmin;
 // these values will return to system
+// 这些值将返回系统
 var NoMontion_Aisle=$"Duration:{Device["走道人体传感器"].StateDuration}";
-var NoMontion_Living=$"Duration:{Device["客厅人体传感器"].StateDuration}";
 var OpenDoor_Study=$"Duration:{Device["书房门"].StateDuration}";
-var OpenDoor_Main=$"Duration:{Device["入户正门"].StateDuration}";
-
 ```
