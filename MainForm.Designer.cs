@@ -28,12 +28,17 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.btnTest = new System.Windows.Forms.Button();
             this.edResult = new System.Windows.Forms.TextBox();
             this.btnReloadScript = new System.Windows.Forms.Button();
             this.btnEditScript = new System.Windows.Forms.Button();
             this.chkPause = new System.Windows.Forms.CheckBox();
             this.chkOnTop = new System.Windows.Forms.CheckBox();
+            this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
+            this.contextNotify = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmiExit = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextNotify.SuspendLayout();
             this.SuspendLayout();
             // 
             // btnTest
@@ -107,11 +112,33 @@
             this.chkOnTop.UseVisualStyleBackColor = true;
             this.chkOnTop.CheckedChanged += new System.EventHandler(this.chkOnTop_CheckedChanged);
             // 
+            // notifyIcon
+            // 
+            this.notifyIcon.ContextMenuStrip = this.contextNotify;
+            this.notifyIcon.Text = "notifyIcon1";
+            this.notifyIcon.Visible = true;
+            this.notifyIcon.DoubleClick += new System.EventHandler(this.notifyIcon_DoubleClick);
+            // 
+            // contextNotify
+            // 
+            this.contextNotify.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.tsmiExit});
+            this.contextNotify.Name = "contextNotify";
+            this.contextNotify.Size = new System.Drawing.Size(97, 26);
+            // 
+            // tsmiExit
+            // 
+            this.tsmiExit.Name = "tsmiExit";
+            this.tsmiExit.Size = new System.Drawing.Size(152, 22);
+            this.tsmiExit.Text = "Exit";
+            this.tsmiExit.Click += new System.EventHandler(this.tsmiExit_Click);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(484, 461);
+            this.ContextMenuStrip = this.contextNotify;
             this.Controls.Add(this.chkOnTop);
             this.Controls.Add(this.chkPause);
             this.Controls.Add(this.btnEditScript);
@@ -123,6 +150,8 @@
             this.Name = "MainForm";
             this.Text = "MiJia Gateway Monitor";
             this.Load += new System.EventHandler(this.MainForm_Load);
+            this.Resize += new System.EventHandler(this.MainForm_Resize);
+            this.contextNotify.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -136,6 +165,9 @@
         private System.Windows.Forms.Button btnEditScript;
         private System.Windows.Forms.CheckBox chkPause;
         private System.Windows.Forms.CheckBox chkOnTop;
+        private System.Windows.Forms.NotifyIcon notifyIcon;
+        private System.Windows.Forms.ContextMenuStrip contextNotify;
+        private System.Windows.Forms.ToolStripMenuItem tsmiExit;
     }
 }
 

@@ -18,6 +18,23 @@ namespace MiJia
 
         internal ScriptEngine engine = new ScriptEngine();
 
+        private void SetHide(bool hide = true)
+        {
+            if (hide)
+            {
+                this.ShowInTaskbar = false;
+                this.WindowState = FormWindowState.Minimized;
+                this.Hide();
+            }
+            else
+            {
+                this.ShowInTaskbar = true;
+                this.Show();
+                this.WindowState = FormWindowState.Normal;
+            }
+            notifyIcon.Visible = hide;
+        }
+
         public MainForm()
         {
             InitializeComponent();
@@ -26,6 +43,9 @@ namespace MiJia
         private void MainForm_Load(object sender, EventArgs e)
         {
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            notifyIcon.Icon = Icon;
+            notifyIcon.Text = this.Text;
+            notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
 
             var basepath = APPFOLDER;
             if (Directory.Exists(APPFOLDER))
@@ -41,7 +61,34 @@ namespace MiJia
 #if DEBUG
             if (USERNAME.StartsWith("netch", StringComparison.CurrentCultureIgnoreCase)) btnTest.Visible = true;
             else btnTest.Visible = false;
+#else
+            SetHide(true);
 #endif
+        }
+
+        private void MainForm_Resize(object sender, EventArgs e)
+        {
+            if (FormWindowState.Minimized == this.WindowState)
+            {
+                SetHide(true);
+            }
+
+            else if (FormWindowState.Normal == this.WindowState)
+            {
+                SetHide(false);
+            }
+        }
+
+        private void notifyIcon_DoubleClick(object sender, EventArgs e)
+        {
+            SetHide(false);
+        }
+
+        private void tsmiExit_Click(object sender, EventArgs e)
+        {
+            Environment.Exit(0);
+            //Application.Exit();
+            //Close();
         }
 
         private async void btnTest_Click(object sender, EventArgs e)
@@ -85,6 +132,8 @@ namespace MiJia
         {
             this.TopMost = chkOnTop.Checked;
         }
+
+
     }
 
 }
