@@ -70,8 +70,8 @@ namespace MiJia
 #else
                 var ret = AutoItX.Run($"notepad2 /s cs {sf}", APPFOLDER);
                 //var ret = AutoItX.RunWait($"notepad2 /s cs {sf}", APPFOLDER);
-                if (ret == 0 && engine is ScriptEngine) engine.ScriptContext = File.ReadAllText(sf);
-                else MessageBox.Show("notepad2 run failed!");
+                //if (ret == 0 && engine is ScriptEngine) engine.ScriptContext = File.ReadAllText(sf);
+                //else MessageBox.Show("notepad2 run failed!");
 #endif
             }
         }
@@ -79,6 +79,11 @@ namespace MiJia
         private void chkPause_CheckStateChanged(object sender, EventArgs e)
         {
             if (engine is ScriptEngine) engine.Pausing = chkPause.Checked;
+        }
+
+        private void chkOnTop_CheckedChanged(object sender, EventArgs e)
+        {
+            this.TopMost = chkOnTop.Checked;
         }
     }
 

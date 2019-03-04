@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Management;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -527,6 +528,43 @@ namespace MiJia
             return (result);
         }
 
+        private class ProcInfo
+        {
+            uint PID { get; set; } = 0;
+            uint Parent { get; set; } = 0;
+            string Name { get; set; } = string.Empty;
+            string Title { get; set; } = string.Empty;
+            Process Info { get; set; } = default(Process);
+        }
+
+        private bool IsAdmin = AutoItX.IsAdmin() == 1 ? true : false;
+        Dictionary<uint, Process> procs = null;
+        private ManagementEventWatcher _watcherStart;
+        private ManagementEventWatcher _watcherStop;
+        public Globals()
+        {
+            if (IsAdmin)
+            {
+                _watcherStart = new ManagementEventWatcher("SELECT ProcessID, ProcessName FROM Win32_ProcessStartTrace");
+                _watcherStart.EventArrived += ProcessStarted;
+                _watcherStop = new ManagementEventWatcher("SELECT * FROM Win32_ProcessStopTrace");
+                _watcherStop.EventArrived += ProcessStoped;
+                _watcherStart.Start();
+                _watcherStop.Start();
+            }
+
+            procs = Process.GetProcesses().ToDictionary(p => (uint)p.Id, p => p);
+        }
+
+        ~Globals()
+        {
+            if (IsAdmin)
+            {
+                _watcherStop.Stop();
+                _watcherStart.Stop();
+            }
+        }
+
         #region MiJia Gateway/ZigBee Device
         internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
         public Dictionary<string, DEVICE> Device { get { return (device); } }
@@ -557,7 +595,7 @@ namespace MiJia
             else
             {
                 AutoItX.WinSetState($@"[REGEXPTITLE:(?i){window}]", "", AutoItX.SW_MINIMIZE);
-                //if (AutoItX.IsAdmin() == 1)
+                //if (IsAdmin)
                 //    AutoItX.WinSetState($@"[REGEXPTITLE:(?i){window}]", "", AutoItX.SW_MINIMIZE);
                 //else
                 //{
@@ -596,7 +634,7 @@ namespace MiJia
                     Regex.IsMatch(ptitle, $@"{title}", RegexOptions.IgnoreCase))
                 {
                     if (p.SafeHandle.IsInvalid) continue;
-                    //if(p.MainModule.FileName)
+                    if (p.MainWindowHandle == IntPtr.Zero) continue;
                     result[pid] = ptitle;
                 }
             }
@@ -615,23 +653,23 @@ namespace MiJia
         private static extern int FindWindow(string sClass, string sWindow);
 
         [DllImport("user32.dll", EntryPoint = "FindWindowEx", CharSet = CharSet.Auto)]
-        static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+        private static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
         [DllImport("User32.Dll", CharSet = CharSet.Auto)]
-        public static extern int GetClassName(int hwnd, string lpClassName, int nMaxCount);
+        private static extern int GetClassName(int hwnd, string lpClassName, int nMaxCount);
 
         [DllImport("user32.dll", SetLastError = true)]
-        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
         
         [DllImport("user32", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowProc lpEnumFunc, IntPtr lParam);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        public static extern bool QueryFullProcessImageName([In]IntPtr hProcess, [In]int dwFlags, [Out]StringBuilder lpExeName, ref int lpdwSize);
+        private static extern bool QueryFullProcessImageName([In]IntPtr hProcess, [In]int dwFlags, [Out]StringBuilder lpExeName, ref int lpdwSize);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern IntPtr OpenProcess(UInt32 dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)]Boolean bInheritHandle, Int32 dwProcessId);
@@ -659,7 +697,7 @@ namespace MiJia
             return true;
         }
 
-        public List<IntPtr> GetWindowHandles(string classname, IntPtr hParent, int maxCount)
+        private List<IntPtr> GetWindowHandles(string classname, IntPtr hParent, int maxCount)
         {
             //ManagementClass mngcls = new ManagementClass("Win32_Process");
             //foreach (ManagementObject instance in mngcls.GetInstances())
@@ -671,14 +709,14 @@ namespace MiJia
             int ct = 0;
             IntPtr prevChild = IntPtr.Zero;
             IntPtr currChild = IntPtr.Zero;
-            while (true && ct < maxCount)
+            while (ct < maxCount)
             {
                 //currChild = FindWindowEx(hParent, prevChild, null, null);
                 currChild = FindWindowEx(hParent, prevChild, classname, null);
                 if (currChild == IntPtr.Zero) break;
                 result.Add(currChild);
                 prevChild = currChild;
-                ++ct;
+                ct++;
             }
             return result;
         }
@@ -774,11 +812,28 @@ namespace MiJia
         #endregion
 
         #region Process routines
+        private void ProcessStarted(object sender, EventArrivedEventArgs e)
+        {
+            // add proc to proc dict
+            var procinfo = e.NewEvent.Properties;
+            var pid = Convert.ToUInt32(procinfo["ProcessID"].Value);
+            var proc = GetProcessById(pid);
+            procs[pid] = proc;
+        }
+
+        private void ProcessStoped(object sender, EventArrivedEventArgs e)
+        {
+            // remove proc to proc dict
+            var procinfo = e.NewEvent.Properties;
+            var pid = Convert.ToUInt32(procinfo["ProcessID"].Value);
+            procs.Remove(pid);
+        }
+
         public void Affinity(int pid, int value = 0)
         {
-            if (pid > 0 && AutoItX.IsAdmin() == 1)
+            if (pid > 0 && IsAdmin)
             {
-                Process proc = GetProcessById(pid);
+                Process proc = procs.ContainsKey((uint)pid) ? procs[(uint)pid] : GetProcessById(pid);
                 if (proc is Process)
                 {
                     proc.ProcessorAffinity = new IntPtr(value);
@@ -788,9 +843,9 @@ namespace MiJia
 
         public void Affinity(uint pid, int value = 0)
         {
-            if (pid > 0 && AutoItX.IsAdmin() == 1)
+            if (pid > 0 && IsAdmin)
             {
-                Process proc = GetProcessById(pid);
+                Process proc = procs.ContainsKey(pid) ? procs[pid] : GetProcessById(pid);
                 if (proc is Process)
                 {
                     proc.ProcessorAffinity = new IntPtr(value);
@@ -824,7 +879,7 @@ namespace MiJia
             return (result);
         }
 
-        public List<Process> GetProcessByName(string name, bool regex = false)
+        public List<Process> GetProcessesByName(string name, bool regex = false)
         {
             List<Process> result = null;
 
@@ -837,7 +892,7 @@ namespace MiJia
             return (result);
         }
 
-        public List<Process> GetProcessByName(string[] names, bool regex = false)
+        public List<Process> GetProcessesByName(string[] names, bool regex = false)
         {
             List<Process> result = new List<Process>();
 
@@ -854,7 +909,7 @@ namespace MiJia
             return (result);
         }
 
-        public List<Process> GetProcessByTitle(string title, bool regex = false)
+        public List<Process> GetProcessesByTitle(string title, bool regex = false)
         {
             List<Process> result = new List<Process>();
 
@@ -872,7 +927,7 @@ namespace MiJia
                 var pnames = UWP_AppNames(title);
                 foreach (var pname in pnames)
                 {
-                    var uwps = GetProcessByName(pname, regex);
+                    var uwps = GetProcessesByName(pname, regex);
                     if (uwps.Count() > 0)
                     {
                         var app = uwps.First();
@@ -885,7 +940,7 @@ namespace MiJia
             return (result);
         }
 
-        public List<Process> GetProcessByTitle(string[] titles, bool regex = false)
+        public List<Process> GetProcessesByTitle(string[] titles, bool regex = false)
         {
             List<Process> result = null;
 
@@ -907,7 +962,7 @@ namespace MiJia
                 var pnames = UWP_AppNames(namelist);
                 foreach (var pname in pnames)
                 {
-                    var uwps = GetProcessByName(pname, regex);
+                    var uwps = GetProcessesByName(pname, regex);
                     if (uwps.Count() > 0)
                     {
                         var app = uwps.First();
@@ -924,9 +979,9 @@ namespace MiJia
         {
             string result = string.Empty;
 
-            if (pid > 0)//&& AutoItX.IsAdmin() == 1)
+            if (pid > 0)//&& IsAdmin)
             {
-                Process proc = GetProcessById(pid);
+                Process proc = procs.ContainsKey((uint)pid) ? procs[(uint)pid] : GetProcessById(pid);
                 if (proc is Process) result = proc.ProcessName;
             }
 
@@ -937,9 +992,9 @@ namespace MiJia
         {
             string result = string.Empty;
 
-            if (pid > 0)//&& AutoItX.IsAdmin() == 1)
+            if (pid > 0)//&& IsAdmin)
             {
-                Process proc = GetProcessById(pid);
+                Process proc = procs.ContainsKey(pid) ? procs[pid] : GetProcessById(pid);
                 if (proc is Process) result = proc.ProcessName;
             }
 
@@ -990,10 +1045,8 @@ namespace MiJia
             {
                 if (pid > 0)
                 {
-                    //AutoItX.Sleep(10);
-                    Process ps = GetProcessById(pid);
-                    if (ps is Process)
-                        ps.Kill();
+                    Process ps = procs.ContainsKey((uint)pid) ? procs[(uint)pid] : GetProcessById(pid);
+                    if (ps is Process) ps.Kill();
                 }
                 else result = false;
             }
@@ -1013,10 +1066,8 @@ namespace MiJia
             {
                 if (pid > 0)
                 {
-                    //AutoItX.Sleep(10);
-                    Process ps = GetProcessById(pid);
-                    if (ps is Process)
-                        ps.Kill();
+                    Process ps = procs.ContainsKey(pid) ? procs[pid] : GetProcessById(pid);
+                    if (ps is Process) ps.Kill();
                 }
                 else result = false;
             }
@@ -1037,7 +1088,7 @@ namespace MiJia
             {
                 //Process[] pslist = Process.GetProcesses();
                 var pName = Path.GetFileNameWithoutExtension(processName);
-                Process[] pslist = Process.GetProcessesByName(pName);
+                var pslist = GetProcessesByName(pName);
                 foreach (var ps in pslist)
                 {
                     try
@@ -1045,20 +1096,6 @@ namespace MiJia
                         if (ps.ProcessName.EndsWith(pName, StringComparison.CurrentCultureIgnoreCase))
                         {
                             ps.Kill();
-                        }
-                    }
-                    catch (Exception) { }
-                }
-                foreach(var process in Process.GetProcesses())
-                {
-                    try
-                    {
-                        var pname = process.ProcessName;
-                        var ptitle = process.MainWindowTitle;
-                        if (Regex.IsMatch(pname, pName, RegexOptions.IgnoreCase) ||
-                           Regex.IsMatch(ptitle, pName, RegexOptions.IgnoreCase))
-                        {
-                            process.Kill();
                         }
                     }
                     catch (Exception) { }
@@ -1082,9 +1119,6 @@ namespace MiJia
                     if (pid > 0)
                     {
                         KillProcess(pid);
-                        //var ret = AutoItX.ProcessClose(processName);
-                        //if (ret > 0) KillProcess(pid);
-                        //if (ret > 0) KillProcess(processName);
                     }
                     //KillProcess(processName);
                 }
@@ -1180,50 +1214,46 @@ namespace MiJia
                     //Instantiate an Enumerator to find audio devices
                     MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
                     //Get all the devices, no matter what condition or status
-                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.Active);
                     //Loop through all devices
                     foreach (MMDevice dev in DevCol)
                     {
                         try
                         {
-                            if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
-                            {
-                                //Show us the human understandable name of the device
 #if DEBUG
-                                Debug.Print(dev.FriendlyName);
+                            Debug.Print(dev.FriendlyName);
 #endif
-                                var sessions = dev.AudioSessionManager.Sessions;
-                                for (int i = 0; i < sessions.Count; i++)
+                            var sessions = dev.AudioSessionManager.Sessions;
+                            for (int i = 0; i < sessions.Count; i++)
+                            {
+                                var session = sessions[i];
+                                var pid = session.GetProcessID;
+                                if (pid == 0) continue;
+                                var process = procs.ContainsKey(pid) ? procs[pid] : GetProcessById(pid);
+                                if (process is Process)
                                 {
-                                    var session = sessions[i];
-                                    var pid = session.GetProcessID;
-                                    if (pid == 0) continue;
-                                    var process = GetProcessById(pid);
-                                    if (process is Process)
+                                    var title = process.MainWindowTitle;
+                                    var pname = process.ProcessName;
+                                    if (//session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                                        !session.IsSystemSoundsSession &&
+                                        (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) ||
+                                        Regex.IsMatch(app, title, RegexOptions.IgnoreCase) ||
+                                        Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
                                     {
-                                        var title = process.MainWindowTitle;
-                                        var pname = process.ProcessName;
-                                        if (//session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
-                                            !session.IsSystemSoundsSession &&
-                                            (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) || 
-                                            Regex.IsMatch(app, title, RegexOptions.IgnoreCase) || 
-                                            Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
+                                        switch (mode)
                                         {
-                                            switch (mode)
-                                            {
-                                                case MUTE_MODE.Background:
+                                            case MUTE_MODE.Background:
 
-                                                    break;
-                                                case MUTE_MODE.Mute:
-                                                    session.SimpleAudioVolume.Mute = true;
-                                                    break;
-                                                case MUTE_MODE.UnMute:
-                                                    session.SimpleAudioVolume.Mute = false;
-                                                    break;
-                                                case MUTE_MODE.Toggle:
-                                                    session.SimpleAudioVolume.Mute = !session.SimpleAudioVolume.Mute;
-                                                    break;
-                                            }
+                                                break;
+                                            case MUTE_MODE.Mute:
+                                                session.SimpleAudioVolume.Mute = true;
+                                                break;
+                                            case MUTE_MODE.UnMute:
+                                                session.SimpleAudioVolume.Mute = false;
+                                                break;
+                                            case MUTE_MODE.Toggle:
+                                                session.SimpleAudioVolume.Mute = !session.SimpleAudioVolume.Mute;
+                                                break;
                                         }
                                     }
                                 }
@@ -1275,7 +1305,7 @@ namespace MiJia
 
                 if (string.IsNullOrEmpty(device))
                 {
-                    MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.All, Role.Multimedia);
                     maindev.AudioEndpointVolume.Mute = true;
                 }
                 else
@@ -1283,35 +1313,31 @@ namespace MiJia
                     //Instantiate an Enumerator to find audio devices
                     MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
                     //Get all the devices, no matter what condition or status
-                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.Active);
                     //Loop through all devices
                     foreach (MMDevice dev in DevCol)
                     {
                         try
                         {
-                            if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
-                            {
-                                //Show us the human understandable name of the device
 #if DEBUG
-                                Debug.Print(dev.FriendlyName);
+                            Debug.Print(dev.FriendlyName);
 #endif
-                                if (device.Equals("*") || dev.FriendlyName.Equals(device, StringComparison.CurrentCultureIgnoreCase))
+                            if (device.Equals("*") || dev.FriendlyName.Equals(device, StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                //Mute it
+                                switch (mode)
                                 {
-                                    //Mute it
-                                    switch (mode)
-                                    {
-                                        case MUTE_MODE.Background:
-                                            break;
-                                        case MUTE_MODE.Mute:
-                                            dev.AudioEndpointVolume.Mute = true;
-                                            break;
-                                        case MUTE_MODE.UnMute:
-                                            dev.AudioEndpointVolume.Mute = false;
-                                            break;
-                                        case MUTE_MODE.Toggle:
-                                            dev.AudioEndpointVolume.Mute = !dev.AudioEndpointVolume.Mute;
-                                            break;
-                                    }
+                                    case MUTE_MODE.Background:
+                                        break;
+                                    case MUTE_MODE.Mute:
+                                        dev.AudioEndpointVolume.Mute = true;
+                                        break;
+                                    case MUTE_MODE.UnMute:
+                                        dev.AudioEndpointVolume.Mute = false;
+                                        break;
+                                    case MUTE_MODE.Toggle:
+                                        dev.AudioEndpointVolume.Mute = !dev.AudioEndpointVolume.Mute;
+                                        break;
                                 }
                             }
                         }
@@ -1356,33 +1382,26 @@ namespace MiJia
 
             try
             {
-                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                var sessions = dev.AudioSessionManager.Sessions;
+                for (int i = 0; i < sessions.Count; i++)
                 {
-                    //Show us the human understandable name of the device
-#if DEBUG
-                    //Debug.Print(dev.FriendlyName);
-#endif
-                    var sessions = dev.AudioSessionManager.Sessions;
-                    for (int i = 0; i < sessions.Count; i++)
+                    var session = sessions[i];
+                    var pid = session.GetProcessID;
+                    if (pid <= 0) continue;
+                    var process = procs.ContainsKey(pid) ? procs[pid] : GetProcessById(pid);
+                    if (process is Process)
                     {
-                        var session = sessions[i];
-                        var pid = session.GetProcessID;
-                        if (pid == 0) continue;
-                        var process = GetProcessById(pid);
-                        if (process is Process)
+                        var title = process.MainWindowTitle;
+                        var pname = process.ProcessName;
+                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                            !session.IsSystemSoundsSession && session.AudioMeterInformation.MasterPeakValue > 0 &&
+                            (string.IsNullOrEmpty(app) || app.Equals("*") ||
+                            pname.Equals(app, StringComparison.InvariantCulture) ||
+                            Regex.IsMatch(pname, Path.GetFileNameWithoutExtension(app), RegexOptions.IgnoreCase) ||
+                            Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
                         {
-                            var title = process.MainWindowTitle;
-                            var pname = process.ProcessName;
-                            if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
-                                !session.IsSystemSoundsSession && session.AudioMeterInformation.MasterPeakValue > 0 &&
-                                (string.IsNullOrEmpty(app) || app.Equals("*") ||
-                                pname.Equals(app, StringComparison.InvariantCulture) ||
-                                Regex.IsMatch(pname, Path.GetFileNameWithoutExtension(app), RegexOptions.IgnoreCase) ||
-                                Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
-                            {
-                                result = true;
-                                break;
-                            }
+                            result = true;
+                            break;
                         }
                     }
                 }
@@ -1401,117 +1420,29 @@ namespace MiJia
 
             try
             {
-                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
+                var sessions = dev.AudioSessionManager.Sessions;
+                for (int i = 0; i < sessions.Count; i++)
                 {
-                    //Show us the human understandable name of the device
-#if DEBUG
-                    Debug.Print(dev.FriendlyName);
-#endif
-                    var sessions = dev.AudioSessionManager.Sessions;
-                    for (int i = 0; i < sessions.Count; i++)
+                    var session = sessions[i];
+                    if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                        !session.IsSystemSoundsSession)
                     {
-                        var session = sessions[i];
-                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
-                            !session.IsSystemSoundsSession)
+                        if (!(apps is string[]) || apps.Length <= 0) result = true;
+                        else
                         {
-                            if (!(apps is string[]) || apps.Length <= 0) result = true;
-                            else
+                            var pid = session.GetProcessID;
+                            if (pid == 0) continue;
+                            //var process = GetProcessById(pid);
+                            var process = procs.ContainsKey(pid) ? procs[pid] : GetProcessById(pid);
+                            if (process is Process)
                             {
-                                var pid = session.GetProcessID;
-                                if (pid == 0) continue;
-                                var process = GetProcessById(pid);
-                                if (process is Process)
-                                {
-                                    var title = process.MainWindowTitle;
-                                    var pname = process.ProcessName;
-                                    foreach (var app in apps)
-                                    {
-                                        if (string.IsNullOrEmpty(app) || app.Equals("*") ||                                            
-                                            Regex.IsMatch(pname, Path.GetFileNameWithoutExtension(app), RegexOptions.IgnoreCase) ||
-                                            Regex.IsMatch(title, app, RegexOptions.IgnoreCase))
-                                        {
-                                            result = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (result) break;
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                //Do something with exception when an audio endpoint could not be muted
-            }
-
-            return (result);
-        }
-
-        private bool DeviceIsActive(MMDevice dev, int app = default(int))
-        {
-            bool result = false;
-
-            try
-            {
-                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
-                {
-                    //Show us the human understandable name of the device
-#if DEBUG
-                    //Debug.Print(dev.FriendlyName);
-#endif
-                    var sessions = dev.AudioSessionManager.Sessions;
-                    for (int i = 0; i < sessions.Count; i++)
-                    {
-                        var session = sessions[i];
-                        var pid = session.GetProcessID;
-                        if (pid == 0) continue;
-                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
-                            !session.IsSystemSoundsSession && session.AudioMeterInformation.MasterPeakValue > 0 &&
-                            app > 0 && app == pid)
-                        {
-                            result = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                //Do something with exception when an audio endpoint could not be muted
-            }
-
-            return (result);
-        }
-
-        private bool DeviceIsActive(MMDevice dev, int[] apps)
-        {
-            bool result = false;
-
-            try
-            {
-                if (dev.State == NAudio.CoreAudioApi.DeviceState.Active)
-                {
-                    //Show us the human understandable name of the device
-#if DEBUG
-                    //Debug.Print(dev.FriendlyName);
-#endif
-                    var sessions = dev.AudioSessionManager.Sessions;
-                    for (int i = 0; i < sessions.Count; i++)
-                    {
-                        var session = sessions[i];
-                        if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
-                            !session.IsSystemSoundsSession)
-                        {
-                            if (!(apps is int[]) || apps.Length <= 0) result = true;
-                            else
-                            {
-                                var pid = session.GetProcessID;
-                                if (pid == 0) continue;
+                                var title = process.MainWindowTitle;
+                                var pname = process.ProcessName;
                                 foreach (var app in apps)
                                 {
-                                    if (app > 0 && app == pid)
+                                    if (string.IsNullOrEmpty(app) || app.Equals("*") ||
+                                        Regex.IsMatch(pname, Path.GetFileNameWithoutExtension(app), RegexOptions.IgnoreCase) ||
+                                        Regex.IsMatch(title, app, RegexOptions.IgnoreCase))
                                     {
                                         result = true;
                                         break;
@@ -1519,8 +1450,8 @@ namespace MiJia
                                 }
                             }
                         }
-                        if (result) break;
                     }
+                    if (result) break;
                 }
             }
             catch (Exception)
@@ -1531,7 +1462,76 @@ namespace MiJia
             return (result);
         }
 
-        public bool MediaIsActive(string app = default(string))
+        private bool DeviceIsActive(MMDevice dev, int pid = default(int))
+        {
+            bool result = false;
+
+            try
+            {
+                var sessions = dev.AudioSessionManager.Sessions;
+                for (int i = 0; i < sessions.Count; i++)
+                {
+                    var session = sessions[i];
+                    var id = session.GetProcessID;
+                    if (id <= 0) continue;
+                    if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                        !session.IsSystemSoundsSession && session.AudioMeterInformation.MasterPeakValue > 0 &&
+                        pid > 0 && pid == id)
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+
+            }
+            catch (Exception)
+            {
+                //Do something with exception when an audio endpoint could not be muted
+            }
+
+            return (result);
+        }
+
+        private bool DeviceIsActive(MMDevice dev, int[] pids)
+        {
+            bool result = false;
+
+            try
+            {
+                var sessions = dev.AudioSessionManager.Sessions;
+                for (int i = 0; i < sessions.Count; i++)
+                {
+                    var session = sessions[i];
+                    if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
+                        !session.IsSystemSoundsSession)
+                    {
+                        if (!(pids is int[]) || pids.Length <= 0) result = true;
+                        else
+                        {
+                            var pid = session.GetProcessID;
+                            if (pid == 0) continue;
+                            foreach (var id in pids)
+                            {
+                                if (id > 0 && id == pid)
+                                {
+                                    result = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (result) break;
+                }
+            }
+            catch (Exception)
+            {
+                //Do something with exception when an audio endpoint could not be muted
+            }
+
+            return (result);
+        }
+
+        private bool MediaIsActive(DataFlow mode, string app = default(string))
         {
             bool result = false;
 
@@ -1539,87 +1539,19 @@ namespace MiJia
             {
                 if (string.IsNullOrEmpty(app))
                 {
-                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
-                    result = DeviceIsActive(dev, app);
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(mode, Role.Multimedia);
+                    result = dev.State == NAudio.CoreAudioApi.DeviceState.Active;
+                    //result = DeviceIsActive(dev, app);
                 }
                 else
                 {
+                    if (IsAdmin)
+                        procs = Process.GetProcesses().ToDictionary(p => (uint)(p.Id), p => p);
+
                     //Instantiate an Enumerator to find audio devices
                     MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
                     //Get all the devices, no matter what condition or status
-                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
-                    //Loop through all devices
-                    foreach (MMDevice dev in DevCol)
-                    {
-                        if (dev.DataFlow == DataFlow.Render && dev.State == NAudio.CoreAudioApi.DeviceState.Active)
-                        {
-                            result = DeviceIsActive(dev, app);
-                            if (result) break;
-                        }
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                //When something happend that prevent us to iterate through the devices
-            }
-
-            return (result);
-        }
-
-        public bool MediaIsActive(string[] apps)
-        {
-            bool result = false;
-
-            try
-            {
-                if (!(apps is string[]) || apps.Length <= 0)
-                {
-                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
-                    result = DeviceIsActive(dev, apps);
-                }
-                else
-                {
-                    //Instantiate an Enumerator to find audio devices
-                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
-                    //Get all the devices, no matter what condition or status
-                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
-                    //Loop through all devices
-                    foreach (MMDevice dev in DevCol)
-                    {
-                        result = DeviceIsActive(dev, apps);
-                        if (result) break;
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                //When something happend that prevent us to iterate through the devices
-            }
-
-            return (result);
-        }
-
-        public bool MediaIsActive(int app)
-        {
-            bool result = false;
-
-            try
-            {
-                if (app == 0)
-                {
-                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
-                    result = DeviceIsActive(dev, app);
-                }
-                else
-                {
-                    //Instantiate an Enumerator to find audio devices
-                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
-                    //Get all the devices, no matter what condition or status
-                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(mode, NAudio.CoreAudioApi.DeviceState.Active);
                     //Loop through all devices
                     foreach (MMDevice dev in DevCol)
                     {
@@ -1636,24 +1568,27 @@ namespace MiJia
             return (result);
         }
 
-        public bool MediaIsActive(int[] apps)
+        private bool MediaIsActive(DataFlow mode, string[] apps)
         {
             bool result = false;
 
             try
             {
-                if (!(apps is int[]) || apps.Length <= 0)
+                if (!(apps is string[]) || apps.Length <= 0)
                 {
-                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    //if (dev.State == NAudio.CoreAudioApi.DeviceState.Active) result = true;
-                    result = DeviceIsActive(dev, apps);
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(mode, Role.Multimedia);
+                    result = dev.State == NAudio.CoreAudioApi.DeviceState.Active;
+                    //result = DeviceIsActive(dev, apps);
                 }
                 else
                 {
+                    if (IsAdmin)
+                        procs = Process.GetProcesses().ToDictionary(p => (uint)(p.Id), p => p);
+                    
                     //Instantiate an Enumerator to find audio devices
                     MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
                     //Get all the devices, no matter what condition or status
-                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.All);
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(mode, NAudio.CoreAudioApi.DeviceState.Active);
                     //Loop through all devices
                     foreach (MMDevice dev in DevCol)
                     {
@@ -1666,6 +1601,146 @@ namespace MiJia
             {
                 //When something happend that prevent us to iterate through the devices
             }
+
+            return (result);
+        }
+
+        private bool MediaIsActive(DataFlow mode, int pid)
+        {
+            bool result = false;
+
+            try
+            {
+                if (pid == 0)
+                {
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(mode, Role.Multimedia);
+                    result = dev.State == NAudio.CoreAudioApi.DeviceState.Active;
+                    //result = DeviceIsActive(dev, app);
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(mode, NAudio.CoreAudioApi.DeviceState.Active);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        result = DeviceIsActive(dev, pid);
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return (result);
+        }
+
+        private bool MediaIsActive(DataFlow mode, int[] pids)
+        {
+            bool result = false;
+
+            try
+            {
+                if (!(pids is int[]) || pids.Length <= 0)
+                {
+                    MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(mode, Role.Multimedia);
+                    result = dev.State == NAudio.CoreAudioApi.DeviceState.Active;
+                    //result = DeviceIsActive(dev, apps);
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(mode, NAudio.CoreAudioApi.DeviceState.Active);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        result = DeviceIsActive(dev, pids);
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return (result);
+        }
+
+        public bool MediaIsOut(string app = default(string))
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Render, app);
+
+            return (result);
+        }
+
+        public bool MediaIsOut(string[] apps)
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Render, apps);
+
+            return (result);
+        }
+
+        public bool MediaIsOut(int pid)
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Render, pid);
+
+            return (result);
+        }
+
+        public bool MediaIsOut(int[] pids)
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Render, pids);
+
+            return (result);
+        }
+
+        public bool MediaIsIn(string app = default(string))
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Capture, app);
+
+            return (result);
+        }
+
+        public bool MediaIsIn(string[] apps)
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Capture, apps);
+
+            return (result);
+        }
+
+        public bool MediaIsIn(int pid)
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Capture, pid);
+
+            return (result);
+        }
+
+        public bool MediaIsIn(int[] pids)
+        {
+            bool result = false;
+
+            result = MediaIsActive(DataFlow.Capture, pids);
 
             return (result);
         }

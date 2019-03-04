@@ -33,6 +33,7 @@
             this.btnReloadScript = new System.Windows.Forms.Button();
             this.btnEditScript = new System.Windows.Forms.Button();
             this.chkPause = new System.Windows.Forms.CheckBox();
+            this.chkOnTop = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // btnTest
@@ -94,11 +95,24 @@
             this.chkPause.UseVisualStyleBackColor = true;
             this.chkPause.CheckStateChanged += new System.EventHandler(this.chkPause_CheckStateChanged);
             // 
+            // chkOnTop
+            // 
+            this.chkOnTop.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.chkOnTop.AutoEllipsis = true;
+            this.chkOnTop.Location = new System.Drawing.Point(110, 425);
+            this.chkOnTop.Name = "chkOnTop";
+            this.chkOnTop.Size = new System.Drawing.Size(111, 23);
+            this.chkOnTop.TabIndex = 5;
+            this.chkOnTop.Text = "Always On Top";
+            this.chkOnTop.UseVisualStyleBackColor = true;
+            this.chkOnTop.CheckedChanged += new System.EventHandler(this.chkOnTop_CheckedChanged);
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(484, 461);
+            this.Controls.Add(this.chkOnTop);
             this.Controls.Add(this.chkPause);
             this.Controls.Add(this.btnEditScript);
             this.Controls.Add(this.btnReloadScript);
@@ -121,6 +135,7 @@
         private System.Windows.Forms.Button btnReloadScript;
         private System.Windows.Forms.Button btnEditScript;
         private System.Windows.Forms.CheckBox chkPause;
+        private System.Windows.Forms.CheckBox chkOnTop;
     }
 }
 
