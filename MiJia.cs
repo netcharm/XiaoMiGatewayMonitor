@@ -1854,7 +1854,7 @@ namespace MiJia
 
         private System.Speech.Synthesis.SpeechSynthesizer synth = new System.Speech.Synthesis.SpeechSynthesizer() { };
         private string voice_default = string.Empty;
-        public void Speak(string text)
+        public void Speak(string text, int vol=100, int rate=0)
         {
             List<string> lang_cn = new List<string>() { "zh-hans", "zh-cn", "zh" };
             List<string> lang_tw = new List<string>() { "zh-hant", "zh-tw" };
@@ -1885,6 +1885,7 @@ namespace MiJia
                     lang = "zh";
                 }
 
+                #region Detect language
                 // Initialize a new instance of the SpeechSynthesizer.
                 foreach (System.Speech.Synthesis.InstalledVoice voice in synth.GetInstalledVoices())
                 {
@@ -1913,10 +1914,13 @@ namespace MiJia
                         break;
                     }
                 }
+                #endregion
 
                 // Synchronous
                 //synth.Speak( text );
                 // Asynchronous
+                synth.Volume = Math.Min(100, Math.Max(0, vol));
+                synth.Rate = Math.Min(10, Math.Max(-10, rate));
                 synth.SpeakAsyncCancelAll();
                 synth.Resume();
                 synth.SpeakAsync(text);
