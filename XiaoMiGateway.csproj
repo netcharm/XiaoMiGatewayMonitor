@@ -179,7 +179,7 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Elton.Aqara\Elton.Aqara.csproj">
+    <ProjectReference Include="..\aqara-dotnet-sdk\src\Aqara\Elton.Aqara\Elton.Aqara.csproj">
       <Project>{932d2984-3299-463f-8ab8-8f888e942923}</Project>
       <Name>Elton.Aqara</Name>
     </ProjectReference>

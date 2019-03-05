@@ -32,7 +32,7 @@ namespace MiJia
                 this.Show();
                 this.WindowState = FormWindowState.Normal;
             }
-            notifyIcon.Visible = hide;
+            //notifyIcon.Visible = hide;
         }
 
         public MainForm()
@@ -61,8 +61,9 @@ namespace MiJia
 #if DEBUG
             if (USERNAME.StartsWith("netch", StringComparison.CurrentCultureIgnoreCase)) btnTest.Visible = true;
             else btnTest.Visible = false;
+            ContextMenuStrip = contextNotify;
 #else
-            SetHide(true);
+            //SetHide(true);
 #endif
         }
 
@@ -82,6 +83,11 @@ namespace MiJia
         private void notifyIcon_DoubleClick(object sender, EventArgs e)
         {
             SetHide(false);
+        }
+
+        private void tsmiShowForm_Click(object sender, EventArgs e)
+        {
+            if(!Visible) SetHide(false);
         }
 
         private void tsmiExit_Click(object sender, EventArgs e)
@@ -125,14 +131,29 @@ namespace MiJia
 
         private void chkPause_CheckStateChanged(object sender, EventArgs e)
         {
-            if (engine is ScriptEngine) engine.Pausing = chkPause.Checked;
+            if (sender == chkPause)
+            {
+                if (engine is ScriptEngine) engine.Pausing = chkPause.Checked;
+                tsmiPause.Checked = chkPause.Checked;
+            }
+            else if(sender == tsmiPause)
+            {
+                chkPause.Checked = tsmiPause.Checked;
+            }
         }
 
         private void chkOnTop_CheckedChanged(object sender, EventArgs e)
         {
-            this.TopMost = chkOnTop.Checked;
+            if(sender == chkOnTop)
+            {
+                TopMost = chkOnTop.Checked;
+                tsmiOnTop.Checked = chkOnTop.Checked;
+            }
+            else if(sender == tsmiOnTop)
+            {
+                chkOnTop.Checked = tsmiOnTop.Checked;
+            }
         }
-
 
     }
 

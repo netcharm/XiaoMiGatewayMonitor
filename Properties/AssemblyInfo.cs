@@ -6,12 +6,12 @@ using System.Runtime.InteropServices;
 // 控制。更改这些特性值可修改
 // 与程序集关联的信息。
 [assembly: AssemblyTitle("XiaoMiGateway")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("XiaoMi/MiJia/Aqara Gateway Monitor With C# Script")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("HP Inc.")]
+[assembly: AssemblyCompany("NetCharm Studio")]
 [assembly: AssemblyProduct("XiaoMiGateway")]
-[assembly: AssemblyCopyright("Copyright © HP Inc. 2019")]
-[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCopyright("Copyright © NetCharm Studio 2019")]
+[assembly: AssemblyTrademark("NetCharm")]
 [assembly: AssemblyCulture("")]
 
 //将 ComVisible 设置为 false 将使此程序集中的类型
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 //可以指定所有这些值，也可以使用“生成号”和“修订号”的默认值，
 // 方法是按如下所示使用“*”: :
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("1.1.2.37")]
-[assembly: AssemblyFileVersion("1.1.2.37")]
+[assembly: AssemblyVersion("1.1.2.47")]
+[assembly: AssemblyFileVersion("1.1.2.47")]

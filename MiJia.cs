@@ -245,6 +245,23 @@ namespace MiJia
             return ($"{text}{padding}");
         }
 
+        #region MiJia Device Exts
+        public static bool IsOpen(this AqaraDevice device)
+        {
+            bool result = false;
+
+            if(device is AqaraDevice)
+            {
+                if(device.States.ContainsKey("state"))
+                {
+
+                }
+            }
+
+            return (result);
+        }
+
+        #endregion
     }
 
     public class ScriptEngine
@@ -464,6 +481,7 @@ namespace MiJia
                 {
                     globals.device = Devices;
                     globals.isTest = IsTest;
+                    globals.Logger.Clear();
 
                     //result = await CSharpScript.RunAsync(ScriptContext, scriptOptions, globals);
                     if (!(script is Script)) Load();
@@ -473,12 +491,20 @@ namespace MiJia
 
                     StringBuilder sb = new StringBuilder();
                     sb.AppendLine("".PaddingRight(72, '-'));// "--------------------------------");
+                    foreach (var line in globals.Logger)
+                    {
+                        sb.AppendLine(line);
+                    }
+                    if(globals.Logger.Count>0)
+                        sb.AppendLine("".PaddingRight(72, '-'));// "--------------------------------");
                     foreach (var v in result.Variables)
                     {
                         if (v.Name.Equals("Device", StringComparison.CurrentCultureIgnoreCase)) continue;
                         sb.AppendLine($"{v.Name} = {v.Value}");
                         globals.vars[v.Name] = v.Value;
                     }
+                    if(result.Variables.Count()>0)
+                        sb.AppendLine("".PaddingRight(72, '-'));// "--------------------------------");
                     if (Logger is TextBox)
                         Logger.Update(Logger.Text + sb.ToString());
                     //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + sb.ToString());
@@ -506,6 +532,8 @@ namespace MiJia
         public uint StateDuration { get; set; } = 0;
         public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
         public AqaraDevice Info { get; set; } = default(AqaraDevice);
+
+        public bool Open { get; }
 
         public void SetState(string key, string value)
         {
@@ -1929,6 +1957,13 @@ namespace MiJia
             {
                 MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, MessageBoxOptions.ServiceNotification);
             }
+        }
+
+        private List<string> logger = new List<string>();
+        public List<string> Logger { get { return(logger); } }
+        public void Print(string text)
+        {
+            logger.Add(text);
         }
         #endregion
     }
