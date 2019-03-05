@@ -13,6 +13,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Dynamic;
 
 using AutoIt;
 using Elton.Aqara;
@@ -352,16 +353,26 @@ namespace MiJia
                 Devices[e.Device.Name].Properties = e.Device.States.ToDictionary(s => s.Key, s => s.Value.Value);
                 Devices[e.Device.Name].Info = e.Device;
                 Devices[e.Device.Name].StateDuration = 0;
+                if (e.Device is AqaraDevice)
+                {
+                    Devices[e.Device.Name].Info.NewStateName = e.StateName;
+                }
             }
             else
-                Devices[e.Device.Name] = new DEVICE() {
+            {
+                Devices[e.Device.Name] = new DEVICE()
+                {
                     client = client,
                     State = e.NewData,
                     Properties = new Dictionary<string, string>(),
                     StateName = e.StateName,
-                    Info = e.Device
+                    Info = e.Device,
                 };
-
+                if (e.Device is AqaraDevice)
+                {
+                    Devices[e.Device.Name].Info.NewStateName = e.StateName;
+                }
+            }
             if (!Pausing) await RunScript();
         }
 
@@ -418,9 +429,9 @@ namespace MiJia
                     Assembly.GetAssembly(typeof(System.Globalization.CultureInfo)),
                     Assembly.GetAssembly(typeof(Math)),
                     Assembly.GetAssembly(typeof(Regex)),
-                    Assembly.GetAssembly(typeof(System.Dynamic.DynamicObject)),  // System.Code
+                    Assembly.GetAssembly(typeof(DynamicObject)),  // System.Dynamic
+                    Assembly.GetAssembly(typeof(ExpandoObject)), // System.Dynamic                    
                     Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
-                    Assembly.GetAssembly(typeof(System.Dynamic.ExpandoObject))  // System.Dynamic                    
                 });
             scriptOptions = scriptOptions.AddImports(new string[] {
                     "System",
@@ -531,7 +542,21 @@ namespace MiJia
         public string StateName { get; internal set; } = string.Empty;
         public uint StateDuration { get; set; } = 0;
         public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
-        public AqaraDevice Info { get; set; } = default(AqaraDevice);
+        //private dynamic device = new ExpandoObject();
+        //public dynamic Info
+        //{
+        //    get
+        //    {
+        //        return (device);
+        //    }
+        //    set
+        //    {
+        //        device = value;
+        //        device.
+        //    }
+        //}
+        public dynamic Info { get; set; }
+        //public AqaraDevice Info { get; set; } = default(AqaraDevice);
 
         public bool Open { get; }
 
@@ -550,7 +575,7 @@ namespace MiJia
         {
             if (client is AqaraClient && states is IEnumerable<KeyValuePair<string, string>>)
             {
-                client.SendWriteCommand(Info, states);
+                client.SendWriteCommand(Info as AqaraDevice, states);
             }
         }
 
@@ -558,6 +583,10 @@ namespace MiJia
         {
             State = string.Empty;
             StateName = string.Empty;
+            if (Info is AqaraDevice)
+            {
+                Info.NewStateName = string.Empty;
+            }
         }
     }
 
