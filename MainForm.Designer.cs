@@ -52,7 +52,7 @@
             // btnTest
             // 
             this.btnTest.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnTest.Location = new System.Drawing.Point(12, 426);
+            this.btnTest.Location = new System.Drawing.Point(12, 438);
             this.btnTest.Name = "btnTest";
             this.btnTest.Size = new System.Drawing.Size(75, 23);
             this.btnTest.TabIndex = 0;
@@ -70,14 +70,14 @@
             this.edResult.Name = "edResult";
             this.edResult.ReadOnly = true;
             this.edResult.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.edResult.Size = new System.Drawing.Size(460, 399);
+            this.edResult.Size = new System.Drawing.Size(472, 411);
             this.edResult.TabIndex = 1;
             this.edResult.WordWrap = false;
             // 
             // btnReloadScript
             // 
             this.btnReloadScript.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnReloadScript.Location = new System.Drawing.Point(397, 426);
+            this.btnReloadScript.Location = new System.Drawing.Point(409, 438);
             this.btnReloadScript.Name = "btnReloadScript";
             this.btnReloadScript.Size = new System.Drawing.Size(75, 23);
             this.btnReloadScript.TabIndex = 2;
@@ -88,7 +88,7 @@
             // btnEditScript
             // 
             this.btnEditScript.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnEditScript.Location = new System.Drawing.Point(316, 426);
+            this.btnEditScript.Location = new System.Drawing.Point(328, 438);
             this.btnEditScript.Name = "btnEditScript";
             this.btnEditScript.Size = new System.Drawing.Size(75, 23);
             this.btnEditScript.TabIndex = 3;
@@ -100,7 +100,7 @@
             // 
             this.chkPause.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.chkPause.AutoEllipsis = true;
-            this.chkPause.Location = new System.Drawing.Point(238, 425);
+            this.chkPause.Location = new System.Drawing.Point(250, 437);
             this.chkPause.Name = "chkPause";
             this.chkPause.Size = new System.Drawing.Size(72, 23);
             this.chkPause.TabIndex = 4;
@@ -112,7 +112,7 @@
             // 
             this.chkOnTop.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.chkOnTop.AutoEllipsis = true;
-            this.chkOnTop.Location = new System.Drawing.Point(110, 425);
+            this.chkOnTop.Location = new System.Drawing.Point(122, 437);
             this.chkOnTop.Name = "chkOnTop";
             this.chkOnTop.Size = new System.Drawing.Size(111, 23);
             this.chkOnTop.TabIndex = 5;
@@ -207,7 +207,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(484, 461);
+            this.ClientSize = new System.Drawing.Size(496, 473);
             this.Controls.Add(this.chkOnTop);
             this.Controls.Add(this.chkPause);
             this.Controls.Add(this.btnEditScript);

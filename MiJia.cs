@@ -1268,7 +1268,7 @@ namespace MiJia
         [DllImport("user32.dll")]
         public static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
 
-        internal static void Monitor(bool on)
+        internal static void Monitor(bool on, bool lockscreen=false)
         {
             var handle = AutoItX.WinGetHandle("[CLASS:Progman]");
             if (handle != IntPtr.Zero)
@@ -1278,17 +1278,18 @@ namespace MiJia
                 else
                     SendMessage(handle.ToInt32(), LCI_WM_SYSCommand, LCI_SC_MonitorPower, LCI_Power_Off);
             }
+            if (lockscreen) AutoItX.Send("#l");
         }
         #endregion
 
-        public void MonitorOn()
+        public void MonitorOn(bool lockscreen = false)
         {
-            Monitor(true);
+            Monitor(true, lockscreen);
         }
 
-        public void MonitorOff()
+        public void MonitorOff(bool lockscreen = false)
         {
-            Monitor(false);
+            Monitor(false, lockscreen);
         }
         #endregion
 
@@ -1385,12 +1386,12 @@ namespace MiJia
             AppMute(MUTE_MODE.UnMute, app);
         }
 
-        public void ToggleAppMute(string app = default(string))
+        public void AppToggleMute(string app = default(string))
         {
             AppMute(MUTE_MODE.Toggle, app);
         }
 
-        public void BackgroundAppMute(string app = default(string))
+        public void AppBackgroundMute(string app = default(string))
         {
             AppMute(MUTE_MODE.Background, app);
         }
