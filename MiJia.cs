@@ -306,11 +306,12 @@ namespace MiJia
                 foreach (var device in gateway.Devices.Values)
                 {
                     if (!Devices.ContainsKey(device.Name))
-                        Devices[device.Name] = new DEVICE() {
-                            client = client,
-                            Properties = device.States.ToDictionary(s => s.Key, s => s.Value.Value),
-                            Info = device
-                        };
+                        Devices[device.Name] = device;
+                    //Devices[device.Name] = new DEVICE() {
+                    //    client = client,
+                    //    Properties = device.States.ToDictionary(s => s.Key, s => s.Value.Value),
+                    //    Info = device
+                    //};
                     else
                         Devices[device.Name].StateDuration++;
 
@@ -342,37 +343,51 @@ namespace MiJia
 
         private AqaraConfig config = null;
         private AqaraClient client = null;
-        private Dictionary<string, DEVICE> Devices = new Dictionary<string, DEVICE>();
+        //private Dictionary<string, DEVICE> Devices = new Dictionary<string, DEVICE>();
+        private Dictionary<string, dynamic> Devices = new Dictionary<string, dynamic>();
 
         private async void DeviceStateChanged(object sender, StateChangedEventArgs e)
         {
-            if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
+            //if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
+            //{
+            //    Devices[e.Device.Name].State = e.NewData;
+            //    Devices[e.Device.Name].StateName = e.StateName;
+            //    Devices[e.Device.Name].Properties = e.Device.States.ToDictionary(s => s.Key, s => s.Value.Value);
+            //    Devices[e.Device.Name].Info = e.Device;
+            //    Devices[e.Device.Name].StateDuration = 0;
+            //    if (e.Device is AqaraDevice)
+            //    {
+            //        Devices[e.Device.Name].Info.NewStateName = e.StateName;
+            //        Devices[e.Device.Name].Info.NewState.Key = e.StateName;
+            //        Devices[e.Device.Name].Info.NewState.Value = e.NewData;
+            //        Devices[e.Device.Name].Info.StateDuration = 0;
+            //    }
+            //}
+            //else
+            //{
+            //    Devices[e.Device.Name] = new DEVICE()
+            //    {
+            //        client = client,
+            //        State = e.NewData,
+            //        Properties = new Dictionary<string, string>(),
+            //        StateName = e.StateName,
+            //        Info = e.Device,
+            //    };
+            //    if (e.Device is AqaraDevice)
+            //    {
+            //        Devices[e.Device.Name].Info.NewStateName = e.StateName;
+            //        Devices[e.Device.Name].Info.NewState.Key = e.StateName;
+            //        Devices[e.Device.Name].Info.NewState.Value = e.NewData;
+            //    }
+            //}
+            Devices[e.Device.Name] = e.Device;
+            if (e.Device is AqaraDevice)
             {
-                Devices[e.Device.Name].State = e.NewData;
-                Devices[e.Device.Name].StateName = e.StateName;
-                Devices[e.Device.Name].Properties = e.Device.States.ToDictionary(s => s.Key, s => s.Value.Value);
-                Devices[e.Device.Name].Info = e.Device;
+                Devices[e.Device.Name].NewStateName = e.StateName;
+                Devices[e.Device.Name].NewStateValue = e.NewData;
                 Devices[e.Device.Name].StateDuration = 0;
-                if (e.Device is AqaraDevice)
-                {
-                    Devices[e.Device.Name].Info.NewStateName = e.StateName;
-                }
             }
-            else
-            {
-                Devices[e.Device.Name] = new DEVICE()
-                {
-                    client = client,
-                    State = e.NewData,
-                    Properties = new Dictionary<string, string>(),
-                    StateName = e.StateName,
-                    Info = e.Device,
-                };
-                if (e.Device is AqaraDevice)
-                {
-                    Devices[e.Device.Name].Info.NewStateName = e.StateName;
-                }
-            }
+
             if (!Pausing) await RunScript();
         }
 
@@ -651,15 +666,18 @@ namespace MiJia
         }
 
         #region MiJia Gateway/ZigBee Device
-        internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
-        public Dictionary<string, DEVICE> Device { get { return (device); } }
+        //internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
+        //public Dictionary<string, DEVICE> Device { get { return (device); } }
+        internal Dictionary<string, dynamic> device = new Dictionary<string, dynamic>();
+        public Dictionary<string, dynamic> Device { get { return (device); } }
 
-        public void Reset(string device = default(string))
+        public void Reset(string devname = default(string))
         {
-            foreach (var dev in Device)
+            foreach (var dev in device)
             {
-                if (string.IsNullOrEmpty(device) || device.Equals("*") || device.Equals(dev.Key, StringComparison.InvariantCulture))
-                    dev.Value.Reset();
+                if (string.IsNullOrEmpty(devname) || device.Equals("*") || devname.Equals(dev.Key, StringComparison.InvariantCulture))
+                    dev.Value.NewStateName = string.Empty;
+                    //dev.Value.Reset();
             }
             isTest = false;
         }
@@ -1278,7 +1296,7 @@ namespace MiJia
         private bool InternalPlay = false;
         private NAudio.Wave.WaveOut waveOut = new NAudio.Wave.WaveOut();
 
-        public void MuteApp(MUTE_MODE mode, string app = default(string))
+        public void AppMute(MUTE_MODE mode, string app = default(string))
         {
             try
             {
@@ -1357,24 +1375,24 @@ namespace MiJia
             }
         }
 
-        public void MuteApp(string app = default(string))
+        public void AppMute(string app = default(string))
         {
-            MuteApp(MUTE_MODE.Mute, app);
+            AppMute(MUTE_MODE.Mute, app);
         }
 
-        public void UnMuteApp(string app = default(string))
+        public void AppUnMute(string app = default(string))
         {
-            MuteApp(MUTE_MODE.UnMute, app);
+            AppMute(MUTE_MODE.UnMute, app);
         }
 
-        public void ToggleMuteApp(string app = default(string))
+        public void ToggleAppMute(string app = default(string))
         {
-            MuteApp(MUTE_MODE.Toggle, app);
+            AppMute(MUTE_MODE.Toggle, app);
         }
 
         public void BackgroundAppMute(string app = default(string))
         {
-            MuteApp(MUTE_MODE.Background, app);
+            AppMute(MUTE_MODE.Background, app);
         }
 
         public void Mute(MUTE_MODE mode, string device = default(string))
@@ -1459,6 +1477,116 @@ namespace MiJia
         public void BackgroundMute(string app = default(string))
         {
             Mute(MUTE_MODE.Background, app);
+        }
+
+        public bool Muted(string device = default(string))
+        {
+            bool result = false;
+
+            try
+            {
+                if (string.IsNullOrEmpty(device))
+                {
+                    MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.All, Role.Multimedia);
+                    if(maindev.AudioEndpointVolume.Mute) result = true;
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.Active);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        try
+                        {
+                            if (device.Equals("*") || dev.FriendlyName.Equals(device, StringComparison.CurrentCultureIgnoreCase))
+                            {
+                                if (dev.AudioEndpointVolume.Mute)
+                                {
+                                    result = true;
+                                    break;
+                                }
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            //Do something with exception when an audio endpoint could not be muted
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return(result);
+        }
+
+        public bool AppMuted(string app = default(string))
+        {
+            bool result = false;
+
+            try
+            {
+                if (string.IsNullOrEmpty(app))
+                {
+                    MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+                    if(maindev.AudioEndpointVolume.Mute) result = true;
+                }
+                else
+                {
+                    //Instantiate an Enumerator to find audio devices
+                    MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
+                    //Get all the devices, no matter what condition or status
+                    MMDeviceCollection DevCol = MMDE.EnumerateAudioEndPoints(DataFlow.All, NAudio.CoreAudioApi.DeviceState.Active);
+                    //Loop through all devices
+                    foreach (MMDevice dev in DevCol)
+                    {
+                        try
+                        {
+                            var sessions = dev.AudioSessionManager.Sessions;
+                            for (int i = 0; i < sessions.Count; i++)
+                            {
+                                var session = sessions[i];
+                                var pid = session.GetProcessID;
+                                if (pid == 0) continue;
+                                var process = procs.ContainsKey(pid) ? procs[pid] : GetProcessById(pid);
+                                if (process is Process)
+                                {
+                                    var title = process.MainWindowTitle;
+                                    var pname = process.ProcessName;
+                                    if (!session.IsSystemSoundsSession &&
+                                        (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) ||
+                                        Regex.IsMatch(app, title, RegexOptions.IgnoreCase) ||
+                                        Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
+                                    {
+                                        if (session.SimpleAudioVolume.Mute)
+                                        {
+                                            result = true;
+                                            break;
+                                        }
+
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            //Do something with exception when an audio endpoint could not be muted
+                        }
+                        if (result) break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                //When something happend that prevent us to iterate through the devices
+            }
+
+            return (result);
         }
 
         private bool DeviceIsActive(MMDevice dev, string app = default(string))
