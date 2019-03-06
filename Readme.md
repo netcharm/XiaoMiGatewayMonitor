@@ -76,7 +76,7 @@ Path: `<APP>\actions.csx`
 ```csharp
 // Do something when some sensor status changes
 // 当某些传感器状态发生变化时做某些事情
-if(IsTest || Device["走道人体传感器"].State.Equals("motion", StringComparison.CurrentCultureIgnoreCase))
+if(IsTest || Device["走道人体传感器"].Motion)
 {
   Kill(new string[] { "mplayer.exe", "vlc.exe", "zPlayer UWP.exe", });
 
@@ -105,7 +105,7 @@ if(IsTest || Device["走道人体传感器"].State.Equals("motion", StringCompar
       //Mute();
       if(MediaIsOut("firefox"))
       {
-        MuteApp("firefox");
+        AppMute("firefox");
       }
     }
   }
@@ -116,13 +116,10 @@ if(IsTest || Device["走道人体传感器"].State.Equals("motion", StringCompar
 
 if(Device["书房门"].State.Equals("close", StringComparison.CurrentCultureIgnoreCase))
 {
+  Speak("自动关闭屏幕和静音");
   MonitorOff();
-  //Device["书房门"].Reset();
-  //MediaPause();
-  //if(MediaIsOut(new string[]{"cloudmusic", "wallpaper", "firefox"}))
   if(MediaIsOut())
   {
-	Speak("自动关闭屏幕");
     Mute();
   }
 }

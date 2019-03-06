@@ -37,15 +37,15 @@
             this.chkOnTop = new System.Windows.Forms.CheckBox();
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.contextNotify = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.tsmiOnTop = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowForm = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
-            this.tsmiExit = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiEdit = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiReload = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiEdit = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiTest = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiPause = new System.Windows.Forms.ToolStripMenuItem();
-            this.tsmiOnTop = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiExit = new System.Windows.Forms.ToolStripMenuItem();
             this.contextNotify.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -140,7 +140,15 @@
             this.toolStripMenuItem2,
             this.tsmiExit});
             this.contextNotify.Name = "contextNotify";
-            this.contextNotify.Size = new System.Drawing.Size(164, 192);
+            this.contextNotify.Size = new System.Drawing.Size(164, 170);
+            // 
+            // tsmiOnTop
+            // 
+            this.tsmiOnTop.CheckOnClick = true;
+            this.tsmiOnTop.Name = "tsmiOnTop";
+            this.tsmiOnTop.Size = new System.Drawing.Size(163, 22);
+            this.tsmiOnTop.Text = "Always On Top";
+            this.tsmiOnTop.Click += new System.EventHandler(this.chkOnTop_CheckedChanged);
             // 
             // tsmiShowForm
             // 
@@ -154,12 +162,12 @@
             this.toolStripMenuItem1.Name = "toolStripMenuItem1";
             this.toolStripMenuItem1.Size = new System.Drawing.Size(160, 6);
             // 
-            // tsmiExit
+            // tsmiReload
             // 
-            this.tsmiExit.Name = "tsmiExit";
-            this.tsmiExit.Size = new System.Drawing.Size(163, 22);
-            this.tsmiExit.Text = "Exit";
-            this.tsmiExit.Click += new System.EventHandler(this.tsmiExit_Click);
+            this.tsmiReload.Name = "tsmiReload";
+            this.tsmiReload.Size = new System.Drawing.Size(163, 22);
+            this.tsmiReload.Text = "Reload Script";
+            this.tsmiReload.Click += new System.EventHandler(this.btnReloadScript_Click);
             // 
             // tsmiEdit
             // 
@@ -168,24 +176,12 @@
             this.tsmiEdit.Text = "Edit Script";
             this.tsmiEdit.Click += new System.EventHandler(this.btnEditScript_Click);
             // 
-            // tsmiReload
-            // 
-            this.tsmiReload.Name = "tsmiReload";
-            this.tsmiReload.Size = new System.Drawing.Size(163, 22);
-            this.tsmiReload.Text = "Reload Script";
-            this.tsmiReload.Click += new System.EventHandler(this.btnReloadScript_Click);
-            // 
             // tsmiTest
             // 
             this.tsmiTest.Name = "tsmiTest";
             this.tsmiTest.Size = new System.Drawing.Size(163, 22);
             this.tsmiTest.Text = "Test Script";
             this.tsmiTest.DoubleClick += new System.EventHandler(this.btnTest_Click);
-            // 
-            // toolStripMenuItem2
-            // 
-            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
-            this.toolStripMenuItem2.Size = new System.Drawing.Size(160, 6);
             // 
             // tsmiPause
             // 
@@ -195,13 +191,17 @@
             this.tsmiPause.Text = "Pausing Script";
             this.tsmiPause.Click += new System.EventHandler(this.chkPause_CheckStateChanged);
             // 
-            // tsmiOnTop
+            // toolStripMenuItem2
             // 
-            this.tsmiOnTop.CheckOnClick = true;
-            this.tsmiOnTop.Name = "tsmiOnTop";
-            this.tsmiOnTop.Size = new System.Drawing.Size(163, 22);
-            this.tsmiOnTop.Text = "Always On Top";
-            this.tsmiOnTop.Click += new System.EventHandler(this.chkOnTop_CheckedChanged);
+            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
+            this.toolStripMenuItem2.Size = new System.Drawing.Size(160, 6);
+            // 
+            // tsmiExit
+            // 
+            this.tsmiExit.Name = "tsmiExit";
+            this.tsmiExit.Size = new System.Drawing.Size(163, 22);
+            this.tsmiExit.Text = "Exit";
+            this.tsmiExit.Click += new System.EventHandler(this.tsmiExit_Click);
             // 
             // MainForm
             // 
@@ -217,6 +217,7 @@
             this.MinimumSize = new System.Drawing.Size(400, 300);
             this.Name = "MainForm";
             this.Text = "MiJia Gateway Monitor";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.Resize += new System.EventHandler(this.MainForm_Resize);
             this.contextNotify.ResumeLayout(false);

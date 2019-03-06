@@ -155,6 +155,16 @@ namespace MiJia
             }
         }
 
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            #if !DEBUG
+            var ret = MessageBox.Show(this, "Exit?", "Question", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
+            if ( ret != DialogResult.Yes)
+            {
+                e.Cancel = true;
+            }
+            #endif
+        }
     }
 
 }
