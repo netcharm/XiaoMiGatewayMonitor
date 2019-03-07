@@ -17,8 +17,8 @@ because gateway report the ZigBee device info only.
 
 1. Windows 10 Home x64
 1. Visual Studio Express 2015 for Desktop
-1. dotnet framework 4.5 of up
-1. [Elton.Aqara](https://github.com/eltonfan/aqara-dotnet-sdk)
+1. dotnet framework 4.5 or up (recommended 4.6.2 or up)
+1. [Elton.Aqara](https://github.com/netcharm/aqara-dotnet-sdk) Forked from [EltonFan Elton.Aqara](https://github.com/eltonfan/aqara-dotnet-sdk)
 1. Roslyn Script Library 1.3.2 (not recommanded upgrade to newest, I try the 2.x version, can not loading assembly dll).
 1. AutoIt3.net (AutoItX)
 1. NAudio
@@ -36,7 +36,7 @@ because gateway report the ZigBee device info only.
 	1. Sleep
 	1. Speak (call system speech synth, can simple detect japanese/chinese, but not supported mixed languages)
 	1. MonitorOff
-	1. WinList("notepad") (AutoItX not include this method in .net)
+	1. WinList("notepad") (AutoItX not include this method in .net assembly)
 	1. Kill(" firefox$") (process name or title, supoort simple regex syntax)
 	1. Media Play/Pause/Stop like global press Play/Pause/Stop key
 	1. Mute/UnMute/ToggleMute (support all devices with * or specified devices with device name)
@@ -114,7 +114,7 @@ if(IsTest || Device["走道人体传感器"].Motion)
   //Reset("走道人体传感器");
 }
 
-if(Device["书房门"].State.Equals("close", StringComparison.CurrentCultureIgnoreCase))
+if(Device["书房门"].Closed)
 {
   Speak("自动关闭屏幕和静音");
   MonitorOff();

@@ -92,9 +92,9 @@ namespace MiJia
 
         private void tsmiExit_Click(object sender, EventArgs e)
         {
-            Environment.Exit(0);
+            //Environment.Exit(0);
             //Application.Exit();
-            //Close();
+            Close();
         }
 
         private async void btnTest_Click(object sender, EventArgs e)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -307,11 +308,6 @@ namespace MiJia
                 {
                     if (!Devices.ContainsKey(device.Name))
                         Devices[device.Name] = device;
-                    //Devices[device.Name] = new DEVICE() {
-                    //    client = client,
-                    //    Properties = device.States.ToDictionary(s => s.Key, s => s.Value.Value),
-                    //    Info = device
-                    //};
                     else
                         Devices[device.Name].StateDuration++;
 
@@ -343,43 +339,13 @@ namespace MiJia
 
         private AqaraConfig config = null;
         private AqaraClient client = null;
-        //private Dictionary<string, DEVICE> Devices = new Dictionary<string, DEVICE>();
         private Dictionary<string, dynamic> Devices = new Dictionary<string, dynamic>();
+        private SortedDictionary<DateTime, StateChangedEventArgs> events = new SortedDictionary<DateTime, StateChangedEventArgs>();
+
 
         private async void DeviceStateChanged(object sender, StateChangedEventArgs e)
         {
-            //if (Devices.ContainsKey(e.Device.Name) && Devices[e.Device.Name] is DEVICE)
-            //{
-            //    Devices[e.Device.Name].State = e.NewData;
-            //    Devices[e.Device.Name].StateName = e.StateName;
-            //    Devices[e.Device.Name].Properties = e.Device.States.ToDictionary(s => s.Key, s => s.Value.Value);
-            //    Devices[e.Device.Name].Info = e.Device;
-            //    Devices[e.Device.Name].StateDuration = 0;
-            //    if (e.Device is AqaraDevice)
-            //    {
-            //        Devices[e.Device.Name].Info.NewStateName = e.StateName;
-            //        Devices[e.Device.Name].Info.NewState.Key = e.StateName;
-            //        Devices[e.Device.Name].Info.NewState.Value = e.NewData;
-            //        Devices[e.Device.Name].Info.StateDuration = 0;
-            //    }
-            //}
-            //else
-            //{
-            //    Devices[e.Device.Name] = new DEVICE()
-            //    {
-            //        client = client,
-            //        State = e.NewData,
-            //        Properties = new Dictionary<string, string>(),
-            //        StateName = e.StateName,
-            //        Info = e.Device,
-            //    };
-            //    if (e.Device is AqaraDevice)
-            //    {
-            //        Devices[e.Device.Name].Info.NewStateName = e.StateName;
-            //        Devices[e.Device.Name].Info.NewState.Key = e.StateName;
-            //        Devices[e.Device.Name].Info.NewState.Value = e.NewData;
-            //    }
-            //}
+            events.Add(DateTime.Now, e);
             Devices[e.Device.Name] = e.Device;
             if (e.Device is AqaraDevice)
             {
@@ -505,9 +471,11 @@ namespace MiJia
             {
                 try
                 {
-                    globals.device = Devices;
-                    globals.isTest = IsTest;
                     globals.Logger.Clear();
+
+                    globals.isTest = IsTest;
+                    globals.device = Devices;
+                    globals.events = events;
 
                     //result = await CSharpScript.RunAsync(ScriptContext, scriptOptions, globals);
                     if (!(script is Script)) Load();
@@ -516,21 +484,26 @@ namespace MiJia
                     if (AutoReset) globals.Reset();
 
                     StringBuilder sb = new StringBuilder();
-                    sb.AppendLine("".PaddingRight(72, '-'));// "--------------------------------");
-                    foreach (var line in globals.Logger)
+                    if (globals.Logger.Count > 0)
                     {
-                        sb.AppendLine(line);
+                        sb.AppendLine("-- Print Out ".PaddingRight(72, '-'));
+                        foreach (var line in globals.Logger)
+                        {
+                            sb.AppendLine(line);
+                        }
                     }
-                    if(globals.Logger.Count>0)
-                        sb.AppendLine("".PaddingRight(72, '-'));// "--------------------------------");
-                    foreach (var v in result.Variables)
+                    if (result.Variables.Length > 0)
                     {
-                        if (v.Name.Equals("Device", StringComparison.CurrentCultureIgnoreCase)) continue;
-                        sb.AppendLine($"{v.Name} = {v.Value}");
-                        globals.vars[v.Name] = v.Value;
+                        sb.AppendLine("-- Variables ".PaddingRight(72, '-'));
+                        foreach (var v in result.Variables)
+                        {
+                            if (v.Name.Equals("Device", StringComparison.CurrentCultureIgnoreCase)) continue;
+                            if (v.Name.Equals("EventLog", StringComparison.CurrentCultureIgnoreCase)) continue;
+
+                            sb.AppendLine($"{v.Name} = {v.Value}");
+                            globals.vars[v.Name] = v.Value;
+                        }
                     }
-                    if(result.Variables.Count()>0)
-                        sb.AppendLine("".PaddingRight(72, '-'));// "--------------------------------");
                     if (Logger is TextBox)
                         Logger.Update(Logger.Text + sb.ToString());
                     //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + sb.ToString());
@@ -557,21 +530,7 @@ namespace MiJia
         public string StateName { get; internal set; } = string.Empty;
         public uint StateDuration { get; set; } = 0;
         public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
-        //private dynamic device = new ExpandoObject();
-        //public dynamic Info
-        //{
-        //    get
-        //    {
-        //        return (device);
-        //    }
-        //    set
-        //    {
-        //        device = value;
-        //        device.
-        //    }
-        //}
         public dynamic Info { get; set; }
-        //public AqaraDevice Info { get; set; } = default(AqaraDevice);
 
         public bool Open { get; }
 
@@ -666,8 +625,9 @@ namespace MiJia
         }
 
         #region MiJia Gateway/ZigBee Device
-        //internal Dictionary<string, DEVICE> device = new Dictionary<string, DEVICE>();
-        //public Dictionary<string, DEVICE> Device { get { return (device); } }
+        internal SortedDictionary<DateTime, StateChangedEventArgs> events = new SortedDictionary<DateTime, StateChangedEventArgs>();
+        public SortedDictionary<DateTime, StateChangedEventArgs> EventLog { get { return (events); } }
+
         internal Dictionary<string, dynamic> device = new Dictionary<string, dynamic>();
         public Dictionary<string, dynamic> Device { get { return (device); } }
 
