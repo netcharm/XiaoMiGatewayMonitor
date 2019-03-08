@@ -264,6 +264,16 @@ namespace MiJia
         }
 
         #endregion
+
+        public static IEnumerable<T> Tail<T>(this IEnumerable<T> source, int N)
+        {
+            return source.Skip(Math.Max(0, source.Count() - N));
+        }
+
+        public static IEnumerable<T> Head<T>(this IEnumerable<T> source, int N)
+        {
+            return source.Take(Math.Max(0, Math.Min(N, source.Count())));
+        }
     }
 
     public class ScriptEngine
@@ -296,64 +306,81 @@ namespace MiJia
 
         private async void TimerRefresh_Tick(object sender, EventArgs e)
         {
-            var gateway = client.Gateways.Values.FirstOrDefault();
-            if (gateway == null)
-            {
-                if (Logger is TextBox) Logger.Update(string.Empty); //Logger.Text = string.Empty;
-            }
-            else
-            {
-                var maxlen_device = 0;
-                foreach (var device in gateway.Devices.Values)
-                {
-                    if (!Devices.ContainsKey(device.Name))
-                        Devices[device.Name] = device;
-                    else
-                        Devices[device.Name].StateDuration++;
+            if (sciptRunning || string.IsNullOrEmpty(scriptContext))
+                return;
+            else if (!(client is AqaraClient) || client.Gateways.Count() <= 0)
+                return;
 
-                    var len_device = Encoding.GetEncoding("gbk").GetBytes(device.Name).Length;
-                    if (len_device > maxlen_device) maxlen_device = len_device;
+            try
+            {
+                var gateway = client.Gateways.Values.FirstOrDefault();
+                if (gateway == null)
+                {
+                    if (Logger is TextBox) Logger.Update(string.Empty); //Logger.Text = string.Empty;
                 }
-
-                if (Logger is TextBox)
+                else
                 {
-                    var sb = new StringBuilder();
-                    sb.AppendLine($"{gateway.EndPoint?.ToString()}[{gateway.Id}]]");
-                    sb.AppendLine($"{gateway.LatestTimestamp.ToString()} : {gateway.Token}");
-                    sb.AppendLine("".PaddingRight(72, '-'));
-
+                    var maxlen_device = 0;
                     foreach (var device in gateway.Devices.Values)
                     {
-                        List<string> psl = new List<string>();
-                        foreach (var pair in device.States)
-                        {
-                            psl.Add($"{pair.Key} = {pair.Value.Value}");
-                        }
-                        sb.AppendLine($"{device.Name.PaddingRight(maxlen_device)}[{string.Join(",", psl)}]");
+                        if (!Devices.ContainsKey(device.Name))
+                            Devices[device.Name] = device;
+                        else
+                            Devices[device.Name].StateDuration++;
+
+                        var len_device = Encoding.GetEncoding("gbk").GetBytes(device.Name).Length;
+                        if (len_device > maxlen_device) maxlen_device = len_device;
                     }
-                    Logger.Update(sb.ToString());
+
+                    if (Logger is TextBox)
+                    {
+                        var sb = new StringBuilder();
+                        sb.AppendLine($"{gateway.EndPoint?.ToString()}[{gateway.Id}]]");
+                        sb.AppendLine($"{gateway.LatestTimestamp.ToString()} : {gateway.Token}");
+                        sb.AppendLine("".PaddingRight(72, '-'));
+
+                        foreach (var device in gateway.Devices.Values)
+                        {
+                            List<string> psl = new List<string>();
+                            foreach (var pair in device.States)
+                            {
+                                psl.Add($"{pair.Key} = {pair.Value.Value}");
+                            }
+                            sb.AppendLine($"{device.Name.PaddingRight(maxlen_device)}[{string.Join(",", psl)}]");
+                        }
+                        Logger.Update(sb.ToString());
+                    }
                 }
             }
+            catch (Exception) { }
+
             if(!Pausing) await RunScript();
         }
 
         private AqaraConfig config = null;
         private AqaraClient client = null;
         private Dictionary<string, dynamic> Devices = new Dictionary<string, dynamic>();
-        private SortedDictionary<DateTime, StateChangedEventArgs> events = new SortedDictionary<DateTime, StateChangedEventArgs>();
-
+        //private SortedDictionary<DateTime, StateChangedEventArgs> events = new SortedDictionary<DateTime, StateChangedEventArgs>();
+        private Queue<KeyValuePair<DateTime, StateChangedEventArgs>> events = new Queue<KeyValuePair<DateTime, StateChangedEventArgs>>(100);
 
         private async void DeviceStateChanged(object sender, StateChangedEventArgs e)
         {
-            events.Add(DateTime.Now, e);
-            Devices[e.Device.Name] = e.Device;
-            if (e.Device is AqaraDevice)
+            //events.Add(DateTime.Now, e);
+            if (events is Queue<KeyValuePair<DateTime, StateChangedEventArgs>>)
             {
-                Devices[e.Device.Name].NewStateName = e.StateName;
-                Devices[e.Device.Name].NewStateValue = e.NewData;
-                Devices[e.Device.Name].StateDuration = 0;
+                events.Enqueue(new KeyValuePair<DateTime, StateChangedEventArgs>(DateTime.Now, e));
+                if (events.Count > 100) events.Dequeue();
             }
-
+            if (Devices is Dictionary<string, dynamic>)
+            {
+                Devices[e.Device.Name] = e.Device;
+                if (e.Device is AqaraDevice)
+                {
+                    Devices[e.Device.Name].NewStateName = e.StateName;
+                    Devices[e.Device.Name].NewStateValue = e.NewData;
+                    Devices[e.Device.Name].StateDuration = 0;
+                }
+            }
             if (!Pausing) await RunScript();
         }
 
@@ -404,6 +431,7 @@ namespace MiJia
                     Assembly.GetAssembly(typeof(AutoItX)),
                     Assembly.GetAssembly(typeof(JsonConvert)),
                     Assembly.GetAssembly(typeof(AqaraDevice)),
+                    Assembly.GetAssembly(typeof(StateChangedEventArgs)),
                     Assembly.GetCallingAssembly(),
                     Assembly.GetEntryAssembly(),
                     Assembly.GetExecutingAssembly(),
@@ -454,9 +482,9 @@ namespace MiJia
         {
             ScriptState result = null;
             if (sciptRunning || string.IsNullOrEmpty(scriptContext))
-            {
                 return (result);
-            }
+            else if (!(client is AqaraClient) || client.Gateways.Count() <= 0)
+                return (result);
 
             sciptRunning = true;
 
@@ -475,13 +503,15 @@ namespace MiJia
 
                     globals.isTest = IsTest;
                     globals.device = Devices;
-                    globals.events = events;
+                    globals.events = events.Tail(25).ToList();
 
-                    //result = await CSharpScript.RunAsync(ScriptContext, scriptOptions, globals);
                     if (!(script is Script)) Load();
-                    result = await script.RunAsync(globals, cancelToken);
-
+                    if (script is Script)
+                    {
+                        result = await script.RunAsync(globals, cancelToken);
+                    }
                     if (AutoReset) globals.Reset();
+                    globals.vars.Clear();
 
                     StringBuilder sb = new StringBuilder();
                     if (globals.Logger.Count > 0)
@@ -492,7 +522,7 @@ namespace MiJia
                             sb.AppendLine(line);
                         }
                     }
-                    if (result.Variables.Length > 0)
+                    if (result is ScriptState && result.Variables.Length > 0)
                     {
                         sb.AppendLine("-- Variables ".PaddingRight(72, '-'));
                         foreach (var v in result.Variables)
@@ -520,7 +550,6 @@ namespace MiJia
             return (result);
         }
         #endregion
-
     }
 
     public class DEVICE
@@ -571,7 +600,7 @@ namespace MiJia
         internal bool isTest = false;
         public bool IsTest { get { return (isTest); } }
 
-        internal Dictionary<string, object> vars = new Dictionary<string, object>();
+        internal Dictionary<string, dynamic> vars = new Dictionary<string, dynamic>();
         public T GetVar<T>(string vn)
         {
             T result = default(T);
@@ -579,6 +608,21 @@ namespace MiJia
             {
                 if (vars.ContainsKey(vn)) result = (T)vars[vn];
                 else result = default(T);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            return (result);
+        }
+
+        public dynamic GetVar(string vn)
+        {
+            dynamic result = default(dynamic);
+            try
+            {
+                if (vars.ContainsKey(vn)) result = vars[vn];
+                else result = default(dynamic);
             }
             catch (Exception ex)
             {
@@ -625,8 +669,8 @@ namespace MiJia
         }
 
         #region MiJia Gateway/ZigBee Device
-        internal SortedDictionary<DateTime, StateChangedEventArgs> events = new SortedDictionary<DateTime, StateChangedEventArgs>();
-        public SortedDictionary<DateTime, StateChangedEventArgs> EventLog { get { return (events); } }
+        internal List<KeyValuePair<DateTime, StateChangedEventArgs>> events = new List<KeyValuePair<DateTime, StateChangedEventArgs>>();
+        public List<KeyValuePair<DateTime, StateChangedEventArgs>> EventLog { get { return (events); } }
 
         internal Dictionary<string, dynamic> device = new Dictionary<string, dynamic>();
         public Dictionary<string, dynamic> Device { get { return (device); } }
@@ -1228,7 +1272,15 @@ namespace MiJia
         [DllImport("user32.dll")]
         public static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
 
-        internal static void Monitor(bool on, bool lockscreen=false)
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern bool LockWorkStation();
+        public bool LockScreen()
+        {
+            return(LockWorkStation());
+        }
+
+        internal void Monitor(bool on, bool lockscreen=false)
         {
             var handle = AutoItX.WinGetHandle("[CLASS:Progman]");
             if (handle != IntPtr.Zero)
@@ -1238,7 +1290,7 @@ namespace MiJia
                 else
                     SendMessage(handle.ToInt32(), LCI_WM_SYSCommand, LCI_SC_MonitorPower, LCI_Power_Off);
             }
-            if (lockscreen) AutoItX.Send("#l");
+            if (lockscreen) LockWorkStation();
         }
         #endregion
 
