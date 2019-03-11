@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -436,6 +437,7 @@ namespace MiJia
                     Assembly.GetEntryAssembly(),
                     Assembly.GetExecutingAssembly(),
                     Assembly.GetAssembly(typeof(System.Globalization.CultureInfo)),
+                    Assembly.GetAssembly(typeof(Color)),
                     Assembly.GetAssembly(typeof(Math)),
                     Assembly.GetAssembly(typeof(Regex)),
                     Assembly.GetAssembly(typeof(DynamicObject)),  // System.Dynamic
@@ -446,6 +448,7 @@ namespace MiJia
                     "System",
                     "System.Collections.Generic",
                     "System.Dynamic",
+                    "System.Drawing",
                     "System.Globalization",
                     "System.IO",
                     "System.Math",
@@ -567,16 +570,16 @@ namespace MiJia
         {
             if (client is AqaraClient)
             {
-                List<KeyValuePair<string, string>> states = new List<KeyValuePair<string, string>>();
-                KeyValuePair<string, string> kv = new KeyValuePair<string, string>(key, value);
+                List<KeyValuePair<string, dynamic>> states = new List<KeyValuePair<string, dynamic>>();
+                KeyValuePair<string, dynamic> kv = new KeyValuePair<string, dynamic>(key, value);
                 states.Add(kv);
                 SetStates(states);
             }
         }
 
-        public void SetStates(IEnumerable<KeyValuePair<string, string>> states)
+        public void SetStates(IEnumerable<KeyValuePair<string, dynamic>> states)
         {
-            if (client is AqaraClient && states is IEnumerable<KeyValuePair<string, string>>)
+            if (client is AqaraClient && states is IEnumerable<KeyValuePair<string, dynamic>>)
             {
                 client.SendWriteCommand(Info as AqaraDevice, states);
             }
@@ -683,7 +686,7 @@ namespace MiJia
                     dev.Value.NewStateName = string.Empty;
                     //dev.Value.Reset();
             }
-            isTest = false;
+            //isTest = false;
         }
         #endregion
 
@@ -2135,6 +2138,12 @@ namespace MiJia
         {
             logger.Add(text);
         }
+
+        public void Print(dynamic content)
+        {
+            logger.Add($"{content}");
+        }
+
         #endregion
     }
 }
