@@ -2032,6 +2032,62 @@ namespace MiJia
         #endregion
 
         #region Misc
+        #region Get Input Idle Info
+        [StructLayout(LayoutKind.Sequential)]
+        struct LASTINPUTINFO
+        {
+            // 设置结构体块容量  
+            [MarshalAs(UnmanagedType.U4)]
+            public int cbSize;
+            // 捕获的时间  
+            [MarshalAs(UnmanagedType.U4)]
+            public uint dwTime;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+        #endregion
+
+        //获取键盘和鼠标没有操作的时间  
+        public static double GetLastInputTime()
+        {
+            uint idleTime = 0;
+            LASTINPUTINFO lastInputInfo = new LASTINPUTINFO();
+            lastInputInfo.cbSize = Marshal.SizeOf(lastInputInfo);
+            lastInputInfo.dwTime = 0;
+
+            uint envTicks = (uint)Environment.TickCount;
+
+            if (GetLastInputInfo(ref lastInputInfo))
+            {
+                uint lastInputTick = lastInputInfo.dwTime;
+
+                idleTime = envTicks - lastInputTick;
+            }
+
+            return ((idleTime > 0) ? (idleTime / 1000.0) : 0);
+
+            //LASTINPUTINFO vLastInputInfo = new LASTINPUTINFO();
+            //vLastInputInfo.cbSize = Marshal.SizeOf(vLastInputInfo);
+            //// 捕获时间  
+            //if (!GetLastInputInfo(ref vLastInputInfo))
+            //    return 0;
+            //else
+            //    return Environment.TickCount - (long)vLastInputInfo.dwTime;
+        }
+
+        public bool IsIdle(double secs = 10)
+        {
+            bool result = false;
+
+            if (secs >= 0)
+            {
+                if (GetLastInputTime() >= secs) result = true;
+            }
+
+            return (result);
+        }
+
         public void Beep(string type = default(string))
         {
             if (string.IsNullOrEmpty(type))
