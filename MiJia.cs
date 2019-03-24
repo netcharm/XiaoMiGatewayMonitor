@@ -684,7 +684,7 @@ namespace MiJia
             {
                 if (string.IsNullOrEmpty(devname) || device.Equals("*") || devname.Equals(dev.Key, StringComparison.InvariantCulture))
                     dev.Value.NewStateName = string.Empty;
-                    //dev.Value.Reset();
+                //dev.Value.Reset();
             }
             //isTest = false;
         }
@@ -773,7 +773,7 @@ namespace MiJia
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-        
+
         [DllImport("user32", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowProc lpEnumFunc, IntPtr lParam);
@@ -890,7 +890,7 @@ namespace MiJia
                 var up = UWP_AppName(uwp, pid);
                 if (result.Contains(up)) continue;
                 if (string.IsNullOrEmpty(title) || title.Equals("*") ||
-                    Regex.IsMatch(up, title, RegexOptions.IgnoreCase)||
+                    Regex.IsMatch(up, title, RegexOptions.IgnoreCase) ||
                     Regex.IsMatch(ut, title, RegexOptions.IgnoreCase))
                 {
                     result.Add(up);
@@ -910,7 +910,7 @@ namespace MiJia
                 var childs = GetWindowHandles("Windows.UI.Core.CoreWindow", host, 100);
                 if (childs.Count() > 0) {
                     var pname = UWP_AppName(host, pID);
-                    if(!result.Contains(pname))
+                    if (!result.Contains(pname))
                         result.Add(UWP_AppName(host, pID));
                 }
             }
@@ -1042,7 +1042,7 @@ namespace MiJia
                     {
                         var app = uwps.First();
                         if (app.Id != proc.Id && result.Where(p => p.Id == app.Id).Count() == 0) result.Add(app);
-                    }                        
+                    }
                 }
                 result.Remove(proc);
             }
@@ -1280,10 +1280,10 @@ namespace MiJia
         public static extern bool LockWorkStation();
         public bool LockScreen()
         {
-            return(LockWorkStation());
+            return (LockWorkStation());
         }
 
-        internal void Monitor(bool on, bool lockscreen=false)
+        internal void Monitor(bool on, bool lockscreen = false)
         {
             var handle = AutoItX.WinGetHandle("[CLASS:Progman]");
             if (handle != IntPtr.Zero)
@@ -1504,7 +1504,7 @@ namespace MiJia
                 if (string.IsNullOrEmpty(device))
                 {
                     MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.All, Role.Multimedia);
-                    if(maindev.AudioEndpointVolume.Mute) result = true;
+                    if (maindev.AudioEndpointVolume.Mute) result = true;
                 }
                 else
                 {
@@ -1538,7 +1538,7 @@ namespace MiJia
                 //When something happend that prevent us to iterate through the devices
             }
 
-            return(result);
+            return (result);
         }
 
         public bool AppMuted(string app = default(string))
@@ -1550,7 +1550,7 @@ namespace MiJia
                 if (string.IsNullOrEmpty(app))
                 {
                     MMDevice maindev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-                    if(maindev.AudioEndpointVolume.Mute) result = true;
+                    if (maindev.AudioEndpointVolume.Mute) result = true;
                 }
                 else
                 {
@@ -1813,7 +1813,7 @@ namespace MiJia
                 {
                     if (IsAdmin)
                         procs = Process.GetProcesses().ToDictionary(p => (uint)(p.Id), p => p);
-                    
+
                     //Instantiate an Enumerator to find audio devices
                     MMDeviceEnumerator MMDE = new MMDeviceEnumerator();
                     //Get all the devices, no matter what condition or status
@@ -1974,7 +1974,7 @@ namespace MiJia
             return (result);
         }
 
-        public void MediaPlay(string media= default(string))
+        public void MediaPlay(string media = default(string))
         {
             if (string.IsNullOrEmpty(media))
             {
@@ -2017,7 +2017,7 @@ namespace MiJia
                 AutoItX.Send("{MEDIA_STOP}");
             else
             {
-                if(waveOut is NAudio.Wave.WaveOut)
+                if (waveOut is NAudio.Wave.WaveOut)
                 {
                     if (waveOut.PlaybackState != NAudio.Wave.PlaybackState.Stopped) waveOut.Stop();
                     InternalPlay = false;
@@ -2074,6 +2074,11 @@ namespace MiJia
             //    return 0;
             //else
             //    return Environment.TickCount - (long)vLastInputInfo.dwTime;
+        }
+
+        public double Idle
+        {
+            get { return (GetLastInputTime()); }
         }
 
         public bool IsIdle(double secs = 10)
