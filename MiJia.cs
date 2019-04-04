@@ -279,7 +279,7 @@ namespace MiJia
 
     public class ScriptEngine
     {
-        private string APPFOLDER = Path.GetDirectoryName(Application.ExecutablePath);
+        private static string APPFOLDER = Path.GetDirectoryName(Application.ExecutablePath);
         private string SKYFOLDER = Path.Combine(KnownFolders.GetPath(KnownFolder.SkyDrive), @"ApplicationData\ConnectedHome");
         private string DOCFOLDER = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), @"Elton\ConnectedHome\");
         private string USERNAME = Environment.UserName;
@@ -416,6 +416,20 @@ namespace MiJia
             set { Load(value); }
         }
 
+        private string scriptFile = string.Empty;
+        public string ScriptFile
+        {
+            get { return (scriptFile); }
+            set
+            {
+                if (File.Exists(scriptFile))
+                {
+                    scriptFile = value;
+                    ScriptContext = File.ReadAllText(scriptFile);
+                }
+            }
+        }
+
         private Globals globals = new Globals();
         private System.Threading.CancellationToken cancelToken = new System.Threading.CancellationToken();
 
@@ -460,9 +474,8 @@ namespace MiJia
                     "MiJia",
                 });
 
-            var sf = Path.Combine(APPFOLDER, "actions.csx");
-            if (File.Exists(sf))
-                Load(File.ReadAllText(sf));
+            if (File.Exists(scriptFile))
+                Load(File.ReadAllText(scriptFile));
 
             return (scriptOptions);
         }
@@ -600,9 +613,54 @@ namespace MiJia
     {
         public enum MUTE_MODE { Mute, UnMute, Toggle, Background }
 
+        private class ProcInfo
+        {
+            uint PID { get; set; } = 0;
+            uint Parent { get; set; } = 0;
+            string Name { get; set; } = string.Empty;
+            string Title { get; set; } = string.Empty;
+            Process Info { get; set; } = default(Process);
+        }
+
+        Dictionary<uint, Process> procs = null;
+        private ManagementEventWatcher _watcherStart;
+        private ManagementEventWatcher _watcherStop;
+
+        public Globals()
+        {
+            if (IsAdmin)
+            {
+                _watcherStart = new ManagementEventWatcher("SELECT ProcessID, ProcessName FROM Win32_ProcessStartTrace");
+                _watcherStart.EventArrived += ProcessStarted;
+                _watcherStop = new ManagementEventWatcher("SELECT * FROM Win32_ProcessStopTrace");
+                _watcherStop.EventArrived += ProcessStoped;
+                _watcherStart.Start();
+                _watcherStop.Start();
+            }
+
+            procs = Process.GetProcesses().ToDictionary(p => (uint)p.Id, p => p);
+        }
+
+        ~Globals()
+        {
+            if (IsAdmin)
+            {
+                if(_watcherStop is ManagementEventWatcher) _watcherStop.Stop();
+                if(_watcherStart is ManagementEventWatcher) _watcherStart.Stop();
+            }
+        }
+
         internal bool isTest = false;
         public bool IsTest { get { return (isTest); } }
 
+        public bool Is32BitApp { get { return (!Environment.Is64BitProcess); } }
+        public bool Is64BitApp { get { return (Environment.Is64BitProcess); } }
+        public bool Is32BitOS { get { return (!Environment.Is64BitOperatingSystem); } }
+        public bool Is64BitOS { get { return (Environment.Is64BitOperatingSystem); } }
+
+        public bool IsAdmin { get; } = AutoItX.IsAdmin() == 1 ? true : false;
+
+        #region Vars routines
         internal Dictionary<string, dynamic> vars = new Dictionary<string, dynamic>();
         public T GetVar<T>(string vn)
         {
@@ -633,43 +691,7 @@ namespace MiJia
             }
             return (result);
         }
-
-        private class ProcInfo
-        {
-            uint PID { get; set; } = 0;
-            uint Parent { get; set; } = 0;
-            string Name { get; set; } = string.Empty;
-            string Title { get; set; } = string.Empty;
-            Process Info { get; set; } = default(Process);
-        }
-
-        public bool IsAdmin { get; set; } = AutoItX.IsAdmin() == 1 ? true : false;
-        Dictionary<uint, Process> procs = null;
-        private ManagementEventWatcher _watcherStart;
-        private ManagementEventWatcher _watcherStop;
-        public Globals()
-        {
-            if (IsAdmin)
-            {
-                _watcherStart = new ManagementEventWatcher("SELECT ProcessID, ProcessName FROM Win32_ProcessStartTrace");
-                _watcherStart.EventArrived += ProcessStarted;
-                _watcherStop = new ManagementEventWatcher("SELECT * FROM Win32_ProcessStopTrace");
-                _watcherStop.EventArrived += ProcessStoped;
-                _watcherStart.Start();
-                _watcherStop.Start();
-            }
-
-            procs = Process.GetProcesses().ToDictionary(p => (uint)p.Id, p => p);
-        }
-
-        ~Globals()
-        {
-            if (IsAdmin)
-            {
-                _watcherStop.Stop();
-                _watcherStart.Stop();
-            }
-        }
+        #endregion
 
         #region MiJia Gateway/ZigBee Device
         internal List<KeyValuePair<DateTime, StateChangedEventArgs>> events = new List<KeyValuePair<DateTime, StateChangedEventArgs>>();
@@ -1259,7 +1281,6 @@ namespace MiJia
             KillProcess(processList);
         }
         #endregion
-
         #endregion
 
         #region Power routines
@@ -1273,11 +1294,10 @@ namespace MiJia
         //private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll")]
-        public static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
-
+        private static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern bool LockWorkStation();
+        private static extern bool LockWorkStation();
         public bool LockScreen()
         {
             return (LockWorkStation());

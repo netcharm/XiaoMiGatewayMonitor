@@ -33,6 +33,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -204,7 +205,7 @@
     </PostBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PreBuildEvent>IF $(ConfigurationName) == Release "D:\Develop\MS\AutoIncBuildNumber.exe" "$(ProjectDir)\" revision</PreBuildEvent>
+    <PreBuildEvent>IF $(ConfigurationName) == Release ( IF $(PlatformName) == x64 "D:\Develop\MS\AutoIncBuildNumber.exe" "$(ProjectDir)\" revision )</PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
