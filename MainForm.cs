@@ -57,7 +57,7 @@ namespace MiJia
                 basepath = DOCFOLDER;
 
             var opts = Environment.CommandLine.Split();
-            if (opts.Length > 0)
+            if (opts.Length > 1)
             {
                 if(!string.IsNullOrEmpty(opts[1]) && File.Exists(opts[1])) SCRIPT_FILE = opts[1];
             }

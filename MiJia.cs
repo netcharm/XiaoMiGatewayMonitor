@@ -422,7 +422,7 @@ namespace MiJia
             get { return (scriptFile); }
             set
             {
-                if (File.Exists(scriptFile))
+                if (File.Exists(value))
                 {
                     scriptFile = value;
                     ScriptContext = File.ReadAllText(scriptFile);
