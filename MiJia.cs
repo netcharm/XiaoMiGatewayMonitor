@@ -631,9 +631,9 @@ namespace MiJia
             if (IsAdmin)
             {
                 _watcherStart = new ManagementEventWatcher("SELECT ProcessID, ProcessName FROM Win32_ProcessStartTrace");
-                _watcherStart.EventArrived += ProcessStarted;
+                _watcherStart.EventArrived += WatcherProcessStarted;
                 _watcherStop = new ManagementEventWatcher("SELECT * FROM Win32_ProcessStopTrace");
-                _watcherStop.EventArrived += ProcessStoped;
+                _watcherStop.EventArrived += WatcherProcessStoped;
                 _watcherStart.Start();
                 _watcherStop.Start();
             }
@@ -944,7 +944,7 @@ namespace MiJia
         #endregion
 
         #region Process routines
-        private void ProcessStarted(object sender, EventArrivedEventArgs e)
+        private void WatcherProcessStarted(object sender, EventArrivedEventArgs e)
         {
             // add proc to proc dict
             var procinfo = e.NewEvent.Properties;
@@ -953,7 +953,7 @@ namespace MiJia
             procs[pid] = proc;
         }
 
-        private void ProcessStoped(object sender, EventArrivedEventArgs e)
+        private void WatcherProcessStoped(object sender, EventArrivedEventArgs e)
         {
             // remove proc to proc dict
             var procinfo = e.NewEvent.Properties;
@@ -987,15 +987,7 @@ namespace MiJia
 
         public Process GetProcessById(int pid)
         {
-            Process result = null;
-
-            var procs = Process.GetProcesses().Where(p => p.Id == pid);
-            if (procs.Count() > 0)
-            {
-                result = procs.First();
-            }
-
-            return (result);
+            return(GetProcessById((uint)pid));
         }
 
         public Process GetProcessById(uint pid)
@@ -1109,15 +1101,7 @@ namespace MiJia
 
         public string ProcessName(int pid)
         {
-            string result = string.Empty;
-
-            if (pid > 0)//&& IsAdmin)
-            {
-                Process proc = procs.ContainsKey((uint)pid) ? procs[(uint)pid] : GetProcessById(pid);
-                if (proc is Process) result = proc.ProcessName;
-            }
-
-            return (result);
+            return (ProcessName((uint)pid));
         }
 
         public string ProcessName(uint pid)
@@ -1172,23 +1156,7 @@ namespace MiJia
         #region Kill Process
         internal bool KillProcess(int pid)
         {
-            bool result = true;
-            try
-            {
-                if (pid > 0)
-                {
-                    Process ps = procs.ContainsKey((uint)pid) ? procs[(uint)pid] : GetProcessById(pid);
-                    if (ps is Process) ps.Kill();
-                }
-                else result = false;
-            }
-            catch (ArgumentException) { }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Kill Failed!", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-            return (result);
+            return (KillProcess((uint)pid));
         }
 
         internal bool KillProcess(uint pid)
@@ -1279,6 +1247,32 @@ namespace MiJia
         public void Kill(string[] processList)
         {
             KillProcess(processList);
+        }
+
+        public void RestartProcess(string processName, bool CurrentUserOnly = true)
+        {
+            if (string.IsNullOrEmpty(processName)) return;
+
+            var processes = GetProcessesByName(processName);
+            foreach (var proc in processes)
+            {
+                var proc_info = proc.StartInfo;
+                if (CurrentUserOnly && proc_info.UserName.Equals(Process.GetCurrentProcess().StartInfo.UserName, StringComparison.CurrentCultureIgnoreCase))
+                {
+                    proc.Kill();
+                    var proc_new = Process.Start(proc_info);
+                }
+                else if (IsAdmin)
+                {
+                    proc.Kill();
+                    var proc_new = Process.Start(proc_info);
+                }
+            }
+            Sleep(100);
+            if(GetProcessesByName(processName).Count()<=0)
+            {
+                Process.Start(processName);
+            }
         }
         #endregion
         #endregion
