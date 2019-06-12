@@ -662,20 +662,28 @@ namespace MiJia
                     Assembly.GetAssembly(typeof(Math)),
                     Assembly.GetAssembly(typeof(Regex)),
                     Assembly.GetAssembly(typeof(DynamicObject)),  // System.Dynamic
-                    Assembly.GetAssembly(typeof(ExpandoObject)), // System.Dynamic                    
+                    Assembly.GetAssembly(typeof(ExpandoObject)), // System.Dynamic
                     Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
+                    Assembly.GetAssembly(typeof(Enumerable)), // Linq
+                    Assembly.GetAssembly(typeof(DefaultExpression)), // Linq Expression
+                    Assembly.GetAssembly(typeof(KnownFolders)), // KnownFolderPaths
                 });
             scriptOptions = scriptOptions.AddImports(new string[] {
                     "System",
                     "System.Collections.Generic",
+                    "System.Collections.Specialized",
                     "System.Dynamic",
                     "System.Drawing",
                     "System.Globalization",
                     "System.IO",
+                    "System.Linq",
+                    "System.Linq.Expressions",
                     "System.Math",
                     "System.Text",
                     "System.Text.RegularExpressions",
+                    "System.Windows.Forms",
                     "AutoIt",
+                    "KnownFolderPaths",
                     "Newtonsoft.Json",
                     "Elton.Aqara",
                     "MiJia",
@@ -1524,6 +1532,11 @@ namespace MiJia
         }
 
         public Dictionary<string, ServiceController> GetServices(string name, bool regex = true)
+        {
+            return (GetServicesByName(name, regex));
+        }
+
+        public Dictionary<string, ServiceController> Services(string name, bool regex = true)
         {
             return (GetServicesByName(name, regex));
         }
