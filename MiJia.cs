@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Drawing;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -11,11 +12,11 @@ using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.ServiceProcess;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Dynamic;
 
 using AutoIt;
 using Elton.Aqara;
@@ -26,6 +27,7 @@ using Microsoft.CodeAnalysis.Scripting.Hosting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NAudio.CoreAudioApi;
+
 
 namespace MiJia
 {
@@ -275,6 +277,211 @@ namespace MiJia
         {
             return source.Take(Math.Max(0, Math.Min(N, source.Count())));
         }
+
+        #region Process Helper
+        public static void Kill(this Process process)
+        {
+            if (process is Process && process.Id > 0)
+            {
+                try
+                {
+                    var result = process.CloseMainWindow();
+                    process.Close();
+                    result = process.WaitForExit(5000);
+                    if (!result && process.Id > 0)
+                    {
+                        process.Kill();
+                        result = process.HasExited;
+                    }
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+
+        public static void Restart(this Process process)
+        {
+            if (process is Process && process.Id > 0)
+            {
+                try
+                {
+                    var cmd = process.StartInfo;
+                    Kill(process);
+                    Process.Start(cmd);
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+        #endregion
+
+        #region Service Helper
+        public static void Start(this ServiceController service, double timeout = 30)
+        {
+            if (service is ServiceController && service.CanStop && service.Status == ServiceControllerStatus.Stopped)
+            {
+                try
+                {
+                    service.Start();
+                    service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(timeout));
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+
+        public static void Start(this IEnumerable<ServiceController> services, double timeout = 30)
+        {
+            foreach(var service in services)
+            {
+                Start(service, timeout);
+            }
+        }
+
+        public static void Start(this Dictionary<string, ServiceController> services, double timeout = 30)
+        {
+            foreach(var service in services)
+            {
+                Start(service.Value, timeout);
+            }
+        }
+
+        public static void Stop(this ServiceController service, double timeout = 30)
+        {
+            if (service is ServiceController && service.CanStop && service.Status == ServiceControllerStatus.Running)
+            {
+                try
+                {
+                    service.Stop();
+                    service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(timeout));
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+
+        public static void Stop(this IEnumerable<ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Stop(service, timeout);
+            }
+        }
+
+        public static void Stop(this Dictionary<string, ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Stop(service.Value, timeout);
+            }
+        }
+
+        public static void Restart(this ServiceController service, double timeout=30)
+        {
+            if (service is ServiceController && service.CanStop)
+            {
+                try
+                {
+                    Stop(service, timeout);
+                    Start(service, timeout);
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+
+        public static void Restart(this IEnumerable<ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Restart(service, timeout);
+            }
+        }
+
+        public static void Restart(this Dictionary<string, ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Restart(service.Value, timeout);
+            }
+        }
+
+        public static void Pause(this ServiceController service, double timeout = 30)
+        {
+            if (service is ServiceController && service.CanPauseAndContinue && service.Status == ServiceControllerStatus.Running)
+            {
+                try
+                {
+                    service.Pause();
+                    service.WaitForStatus(ServiceControllerStatus.Paused, TimeSpan.FromSeconds(timeout));
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+
+        public static void Pause(this IEnumerable<ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Pause(service, timeout);
+            }
+        }
+
+        public static void Pause(this Dictionary<string, ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Pause(service.Value, timeout);
+            }
+        }
+
+        public static void Continue(this ServiceController service, double timeout = 30)
+        {
+            if (service is ServiceController && service.CanPauseAndContinue && service.Status == ServiceControllerStatus.Paused)
+            {
+                try
+                {
+                    service.Continue();
+                    service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(timeout));
+                }
+                catch (Exception)
+                {
+
+                }
+            }
+        }
+
+        public static void Continue(this IEnumerable<ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Continue(service, timeout);
+            }
+        }
+
+        public static void Continue(this Dictionary<string, ServiceController> services, double timeout = 30)
+        {
+            foreach (var service in services)
+            {
+                Continue(service.Value, timeout);
+            }
+        }
+
+        #endregion
+
     }
 
     public class ScriptEngine
@@ -944,6 +1151,8 @@ namespace MiJia
         #endregion
 
         #region Process routines
+        public IEnumerable<Process> AllProcess { get { return Process.GetProcesses(); } }
+
         private void WatcherProcessStarted(object sender, EventArrivedEventArgs e)
         {
             // add proc to proc dict
@@ -1275,6 +1484,49 @@ namespace MiJia
             }
         }
         #endregion
+        #endregion
+
+        #region Service routines
+        public Dictionary<string, ServiceController> Service { get { return (GetServices()); } }
+
+        public Dictionary<string, ServiceController> GetServicesByName(string name, bool regex = false)
+        {
+            var result = new Dictionary<string, ServiceController>();
+
+            IEnumerable<ServiceController> services = null;
+            if (regex)
+            {
+                services = ServiceController.GetServices().Where(p => Regex.IsMatch(p.ServiceName, $"{name}", RegexOptions.IgnoreCase));
+            }
+            else
+            {
+                services = ServiceController.GetServices().Where(p => p.ServiceName.Equals(name, StringComparison.OrdinalIgnoreCase));
+            }
+            foreach (var service in services)
+            {
+                result.Add(service.ServiceName, service);
+            }
+
+            return (result);
+        }
+
+        public Dictionary<string, ServiceController> GetServices()
+        {
+            var result = new Dictionary<string, ServiceController>();
+
+            var services = ServiceController.GetServices();
+            foreach (var service in services)
+            {
+                result.Add(service.ServiceName, service);
+            }
+
+            return (result);
+        }
+
+        public Dictionary<string, ServiceController> GetServices(string name, bool regex = true)
+        {
+            return (GetServicesByName(name, regex));
+        }
         #endregion
 
         #region Power routines
