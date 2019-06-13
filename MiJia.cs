@@ -322,7 +322,8 @@ namespace MiJia
         #region Service Helper
         public static void Start(this ServiceController service, double timeout = 30)
         {
-            if (service is ServiceController && service.CanStop && service.Status == ServiceControllerStatus.Stopped)
+            if (service is ServiceController && 
+                (service.Status == ServiceControllerStatus.Stopped || service.Status == ServiceControllerStatus.StopPending))
             {
                 try
                 {
@@ -354,7 +355,8 @@ namespace MiJia
 
         public static void Stop(this ServiceController service, double timeout = 30)
         {
-            if (service is ServiceController && service.CanStop && service.Status == ServiceControllerStatus.Running)
+            if (service is ServiceController && service.CanStop && 
+                service.Status != ServiceControllerStatus.Stopped && service.Status != ServiceControllerStatus.StopPending)
             {
                 try
                 {
@@ -384,14 +386,16 @@ namespace MiJia
             }
         }
 
-        public static void Restart(this ServiceController service, double timeout=30)
+        public static void Restart(this ServiceController service, bool force = false, double timeout = 30)
         {
             if (service is ServiceController && service.CanStop)
             {
                 try
                 {
+                    bool running = service.Status == ServiceControllerStatus.Running;
                     Stop(service, timeout);
-                    Start(service, timeout);
+                    if (running || force)
+                        Start(service, timeout);
                 }
                 catch (Exception)
                 {
@@ -400,19 +404,19 @@ namespace MiJia
             }
         }
 
-        public static void Restart(this IEnumerable<ServiceController> services, double timeout = 30)
+        public static void Restart(this IEnumerable<ServiceController> services, bool force = false, double timeout = 30)
         {
             foreach (var service in services)
             {
-                Restart(service, timeout);
+                Restart(service, force, timeout);
             }
         }
 
-        public static void Restart(this Dictionary<string, ServiceController> services, double timeout = 30)
+        public static void Restart(this Dictionary<string, ServiceController> services, bool force = false, double timeout = 30)
         {
             foreach (var service in services)
             {
-                Restart(service.Value, timeout);
+                Restart(service.Value, force, timeout);
             }
         }
 
@@ -450,7 +454,8 @@ namespace MiJia
 
         public static void Continue(this ServiceController service, double timeout = 30)
         {
-            if (service is ServiceController && service.CanPauseAndContinue && service.Status == ServiceControllerStatus.Paused)
+            if (service is ServiceController && service.CanPauseAndContinue && 
+                (service.Status == ServiceControllerStatus.Paused || service.Status == ServiceControllerStatus.PausePending))
             {
                 try
                 {
