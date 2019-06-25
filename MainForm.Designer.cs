@@ -39,12 +39,14 @@
             this.contextNotify = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiOnTop = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiShowForm = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiSep1 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiReload = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiEdit = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiTest = new System.Windows.Forms.ToolStripMenuItem();
             this.tsmiPause = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiSep2 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsmiResetGateway = new System.Windows.Forms.ToolStripMenuItem();
+            this.tsmiSep3 = new System.Windows.Forms.ToolStripSeparator();
             this.tsmiExit = new System.Windows.Forms.ToolStripMenuItem();
             this.contextNotify.SuspendLayout();
             this.SuspendLayout();
@@ -132,15 +134,17 @@
             this.contextNotify.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tsmiOnTop,
             this.tsmiShowForm,
-            this.toolStripMenuItem1,
+            this.tsmiSep1,
             this.tsmiReload,
             this.tsmiEdit,
             this.tsmiTest,
             this.tsmiPause,
-            this.toolStripMenuItem2,
+            this.tsmiSep2,
+            this.tsmiResetGateway,
+            this.tsmiSep3,
             this.tsmiExit});
             this.contextNotify.Name = "contextNotify";
-            this.contextNotify.Size = new System.Drawing.Size(164, 170);
+            this.contextNotify.Size = new System.Drawing.Size(164, 220);
             // 
             // tsmiOnTop
             // 
@@ -157,10 +161,10 @@
             this.tsmiShowForm.Text = "Show Window";
             this.tsmiShowForm.Click += new System.EventHandler(this.tsmiShowForm_Click);
             // 
-            // toolStripMenuItem1
+            // tsmiSep1
             // 
-            this.toolStripMenuItem1.Name = "toolStripMenuItem1";
-            this.toolStripMenuItem1.Size = new System.Drawing.Size(160, 6);
+            this.tsmiSep1.Name = "tsmiSep1";
+            this.tsmiSep1.Size = new System.Drawing.Size(160, 6);
             // 
             // tsmiReload
             // 
@@ -191,10 +195,22 @@
             this.tsmiPause.Text = "Pausing Script";
             this.tsmiPause.Click += new System.EventHandler(this.chkPause_CheckStateChanged);
             // 
-            // toolStripMenuItem2
+            // tsmiSep2
             // 
-            this.toolStripMenuItem2.Name = "toolStripMenuItem2";
-            this.toolStripMenuItem2.Size = new System.Drawing.Size(160, 6);
+            this.tsmiSep2.Name = "tsmiSep2";
+            this.tsmiSep2.Size = new System.Drawing.Size(160, 6);
+            // 
+            // tsmiResetGateway
+            // 
+            this.tsmiResetGateway.Name = "tsmiResetGateway";
+            this.tsmiResetGateway.Size = new System.Drawing.Size(163, 22);
+            this.tsmiResetGateway.Text = "Reset Gateway";
+            this.tsmiResetGateway.Click += new System.EventHandler(this.tsmiResetGateway_Click);
+            // 
+            // tsmiSep3
+            // 
+            this.tsmiSep3.Name = "tsmiSep3";
+            this.tsmiSep3.Size = new System.Drawing.Size(160, 6);
             // 
             // tsmiExit
             // 
@@ -238,13 +254,15 @@
         private System.Windows.Forms.ContextMenuStrip contextNotify;
         private System.Windows.Forms.ToolStripMenuItem tsmiExit;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowForm;
-        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem1;
+        private System.Windows.Forms.ToolStripSeparator tsmiSep1;
         private System.Windows.Forms.ToolStripMenuItem tsmiOnTop;
         private System.Windows.Forms.ToolStripMenuItem tsmiReload;
         private System.Windows.Forms.ToolStripMenuItem tsmiEdit;
         private System.Windows.Forms.ToolStripMenuItem tsmiTest;
         private System.Windows.Forms.ToolStripMenuItem tsmiPause;
-        private System.Windows.Forms.ToolStripSeparator toolStripMenuItem2;
+        private System.Windows.Forms.ToolStripSeparator tsmiSep2;
+        private System.Windows.Forms.ToolStripMenuItem tsmiResetGateway;
+        private System.Windows.Forms.ToolStripSeparator tsmiSep3;
     }
 }
 

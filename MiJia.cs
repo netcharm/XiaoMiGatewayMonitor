@@ -230,7 +230,8 @@ namespace MiJia
 
         public static void Update(this Control control, string text)
         {
-            control.Invoke((MethodInvoker)delegate {
+            control.Invoke((MethodInvoker)delegate
+            {
                 // Running on the UI thread
                 control.Text = text;
             });
@@ -255,9 +256,9 @@ namespace MiJia
         {
             bool result = false;
 
-            if(device is AqaraDevice)
+            if (device is AqaraDevice)
             {
-                if(device.States.ContainsKey("state"))
+                if (device.States.ContainsKey("state"))
                 {
 
                 }
@@ -322,7 +323,7 @@ namespace MiJia
         #region Service Helper
         public static void Start(this ServiceController service, double timeout = 30)
         {
-            if (service is ServiceController && 
+            if (service is ServiceController &&
                 (service.Status == ServiceControllerStatus.Stopped || service.Status == ServiceControllerStatus.StopPending))
             {
                 try
@@ -330,16 +331,22 @@ namespace MiJia
                     service.Start();
                     service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(timeout));
                 }
+#if DEBUG
+                catch (Exception ex)
+#else
                 catch (Exception)
+#endif
                 {
-
+#if DEBUG
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+#endif
                 }
             }
         }
 
         public static void Start(this IEnumerable<ServiceController> services, double timeout = 30)
         {
-            foreach(var service in services)
+            foreach (var service in services)
             {
                 Start(service, timeout);
             }
@@ -347,7 +354,7 @@ namespace MiJia
 
         public static void Start(this Dictionary<string, ServiceController> services, double timeout = 30)
         {
-            foreach(var service in services)
+            foreach (var service in services)
             {
                 Start(service.Value, timeout);
             }
@@ -355,7 +362,7 @@ namespace MiJia
 
         public static void Stop(this ServiceController service, double timeout = 30)
         {
-            if (service is ServiceController && service.CanStop && 
+            if (service is ServiceController && service.CanStop &&
                 service.Status != ServiceControllerStatus.Stopped && service.Status != ServiceControllerStatus.StopPending)
             {
                 try
@@ -363,9 +370,15 @@ namespace MiJia
                     service.Stop();
                     service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(timeout));
                 }
+#if DEBUG
+                catch (Exception ex)
+#else
                 catch (Exception)
+#endif
                 {
-
+#if DEBUG
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+#endif
                 }
             }
         }
@@ -397,9 +410,15 @@ namespace MiJia
                     if (running || force)
                         Start(service, timeout);
                 }
+#if DEBUG
+                catch (Exception ex)
+#else
                 catch (Exception)
+#endif
                 {
-
+#if DEBUG
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+#endif
                 }
             }
         }
@@ -429,9 +448,15 @@ namespace MiJia
                     service.Pause();
                     service.WaitForStatus(ServiceControllerStatus.Paused, TimeSpan.FromSeconds(timeout));
                 }
+#if DEBUG
+                catch (Exception ex)
+#else
                 catch (Exception)
+#endif
                 {
-
+#if DEBUG
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+#endif
                 }
             }
         }
@@ -454,7 +479,7 @@ namespace MiJia
 
         public static void Continue(this ServiceController service, double timeout = 30)
         {
-            if (service is ServiceController && service.CanPauseAndContinue && 
+            if (service is ServiceController && service.CanPauseAndContinue &&
                 (service.Status == ServiceControllerStatus.Paused || service.Status == ServiceControllerStatus.PausePending))
             {
                 try
@@ -462,9 +487,15 @@ namespace MiJia
                     service.Continue();
                     service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(timeout));
                 }
+#if DEBUG
+                catch (Exception ex)
+#else
                 catch (Exception)
+#endif
                 {
-
+#if DEBUG
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+#endif
                 }
             }
         }
@@ -510,7 +541,7 @@ namespace MiJia
                 interval = value;
                 if (timerRefresh is Timer)
                 {
-                    if(timerRefresh.Enabled) timerRefresh.Stop();
+                    if (timerRefresh.Enabled) timerRefresh.Stop();
                     timerRefresh.Interval = value;
                     timerRefresh.Start();
                 }
@@ -567,9 +598,11 @@ namespace MiJia
             }
             catch (Exception) { }
 
-            if(!Pausing) await RunScript();
+            if (!Pausing) await RunScript();
         }
 
+        private Task worker = null;
+        private System.Threading.CancellationToken workerCancelToken = new System.Threading.CancellationToken();
         private AqaraConfig config = null;
         private AqaraClient client = null;
         private Dictionary<string, dynamic> Devices = new Dictionary<string, dynamic>();
@@ -607,10 +640,23 @@ namespace MiJia
             {
                 config = AqaraConfig.Parse(File.ReadAllText(configFile));
             }
-            client = new AqaraClient(config);           
-            client.DeviceStateChanged += DeviceStateChanged;
-            Task.Run(() => { client.DoWork(null); });
 
+            if (client is AqaraClient)
+            {
+                client.CancellationPending = true;
+                AutoItX.Sleep(100);
+                if (worker is Task) workerCancelToken.ThrowIfCancellationRequested();
+                AutoItX.Sleep(100);
+            }
+
+            client = new AqaraClient(config);
+            client.DeviceStateChanged += DeviceStateChanged;
+            worker = Task.Run(() =>
+            {
+                client.DoWork(workerCancelToken);
+            }, workerCancelToken);
+
+            if (timerRefresh is Timer) timerRefresh.Stop();
             timerRefresh = new Timer();
             timerRefresh.Tick += TimerRefresh_Tick;
             timerRefresh.Interval = Interval;
@@ -654,45 +700,45 @@ namespace MiJia
             scriptOptions = ScriptOptions.Default;
             //options = options.AddReferences(AppDomain.CurrentDomain.GetAssemblies());
             scriptOptions = scriptOptions.AddReferences(new Assembly[] {
-                    Assembly.GetAssembly(typeof(Path)),
-                    Assembly.GetAssembly(typeof(AutoItX)),
-                    Assembly.GetAssembly(typeof(JsonConvert)),
-                    Assembly.GetAssembly(typeof(AqaraDevice)),
-                    Assembly.GetAssembly(typeof(StateChangedEventArgs)),
-                    Assembly.GetCallingAssembly(),
-                    Assembly.GetEntryAssembly(),
-                    Assembly.GetExecutingAssembly(),
-                    Assembly.GetAssembly(typeof(System.Globalization.CultureInfo)),
-                    Assembly.GetAssembly(typeof(Color)),
-                    Assembly.GetAssembly(typeof(Math)),
-                    Assembly.GetAssembly(typeof(Regex)),
-                    Assembly.GetAssembly(typeof(DynamicObject)),  // System.Dynamic
-                    Assembly.GetAssembly(typeof(ExpandoObject)), // System.Dynamic
-                    Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
-                    Assembly.GetAssembly(typeof(Enumerable)), // Linq
-                    Assembly.GetAssembly(typeof(DefaultExpression)), // Linq Expression
-                    Assembly.GetAssembly(typeof(KnownFolders)), // KnownFolderPaths
-                });
+                            Assembly.GetAssembly(typeof(Path)),
+                            Assembly.GetAssembly(typeof(AutoItX)),
+                            Assembly.GetAssembly(typeof(JsonConvert)),
+                            Assembly.GetAssembly(typeof(AqaraDevice)),
+                            Assembly.GetAssembly(typeof(StateChangedEventArgs)),
+                            Assembly.GetCallingAssembly(),
+                            Assembly.GetEntryAssembly(),
+                            Assembly.GetExecutingAssembly(),
+                            Assembly.GetAssembly(typeof(System.Globalization.CultureInfo)),
+                            Assembly.GetAssembly(typeof(Color)),
+                            Assembly.GetAssembly(typeof(Math)),
+                            Assembly.GetAssembly(typeof(Regex)),
+                            Assembly.GetAssembly(typeof(DynamicObject)),  // System.Dynamic
+                            Assembly.GetAssembly(typeof(ExpandoObject)), // System.Dynamic
+                            Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
+                            Assembly.GetAssembly(typeof(Enumerable)), // Linq
+                            Assembly.GetAssembly(typeof(DefaultExpression)), // Linq Expression
+                            Assembly.GetAssembly(typeof(KnownFolders)), // KnownFolderPaths
+                        });
             scriptOptions = scriptOptions.AddImports(new string[] {
-                    "System",
-                    "System.Collections.Generic",
-                    "System.Collections.Specialized",
-                    "System.Dynamic",
-                    "System.Drawing",
-                    "System.Globalization",
-                    "System.IO",
-                    "System.Linq",
-                    "System.Linq.Expressions",
-                    "System.Math",
-                    "System.Text",
-                    "System.Text.RegularExpressions",
-                    "System.Windows.Forms",
-                    "AutoIt",
-                    "KnownFolderPaths",
-                    "Newtonsoft.Json",
-                    "Elton.Aqara",
-                    "MiJia",
-                });
+                            "System",
+                            "System.Collections.Generic",
+                            "System.Collections.Specialized",
+                            "System.Dynamic",
+                            "System.Drawing",
+                            "System.Globalization",
+                            "System.IO",
+                            "System.Linq",
+                            "System.Linq.Expressions",
+                            "System.Math",
+                            "System.Text",
+                            "System.Text.RegularExpressions",
+                            "System.Windows.Forms",
+                            "AutoIt",
+                            "KnownFolderPaths",
+                            "Newtonsoft.Json",
+                            "Elton.Aqara",
+                            "MiJia",
+                        });
 
             if (File.Exists(scriptFile))
                 Load(File.ReadAllText(scriptFile));
@@ -702,7 +748,7 @@ namespace MiJia
 
         public void Load(string context = "")
         {
-            if(!string.IsNullOrEmpty(context)) scriptContext = context;
+            if (!string.IsNullOrEmpty(context)) scriptContext = context;
             script = CSharpScript.Create(scriptContext, scriptOptions, typeof(Globals), loader);
             script.Compile();
         }
@@ -710,8 +756,8 @@ namespace MiJia
         internal void Init(string basepath, string configFile, TextBox logger)
         {
             InitMiJiaGateway(basepath, configFile);
-            InitScriptEngine();
-            if(logger is TextBox) Logger = logger;
+            scriptOptions = InitScriptEngine();
+            if (logger is TextBox) Logger = logger;
         }
 
         internal async Task<ScriptState> RunScript(bool AutoReset = false, bool IsTest = false)
@@ -729,7 +775,7 @@ namespace MiJia
             {
                 if (Logger is TextBox)
                     Logger.Update(string.Empty);
-                    //Logger.SetPropertyThreadSafe(() => Logger.Text, string.Empty);
+                //Logger.SetPropertyThreadSafe(() => Logger.Text, string.Empty);
             }
             else
             {
@@ -778,7 +824,7 @@ namespace MiJia
                 {
                     if (Logger is TextBox)
                         Logger.Update(Logger.Text + ex.Message);
-                        //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + ex.Message);
+                    //Logger.SetPropertyThreadSafe(() => Logger.Text, Logger.Text + ex.Message);
                 }
             }
 
@@ -865,8 +911,8 @@ namespace MiJia
         {
             if (IsAdmin)
             {
-                if(_watcherStop is ManagementEventWatcher) _watcherStop.Stop();
-                if(_watcherStart is ManagementEventWatcher) _watcherStart.Stop();
+                if (_watcherStop is ManagementEventWatcher) _watcherStop.Stop();
+                if (_watcherStart is ManagementEventWatcher) _watcherStart.Stop();
             }
         }
 
@@ -1150,7 +1196,8 @@ namespace MiJia
             foreach (var host in Hosts)
             {
                 var childs = GetWindowHandles("Windows.UI.Core.CoreWindow", host, 100);
-                if (childs.Count() > 0) {
+                if (childs.Count() > 0)
+                {
                     var pname = UWP_AppName(host, pID);
                     if (!result.Contains(pname))
                         result.Add(UWP_AppName(host, pID));
@@ -1209,7 +1256,7 @@ namespace MiJia
 
         public Process GetProcessById(int pid)
         {
-            return(GetProcessById((uint)pid));
+            return (GetProcessById((uint)pid));
         }
 
         public Process GetProcessById(uint pid)
@@ -1491,7 +1538,7 @@ namespace MiJia
                 }
             }
             Sleep(100);
-            if(GetProcessesByName(processName).Count()<=0)
+            if (GetProcessesByName(processName).Count() <= 0)
             {
                 Process.Start(processName);
             }
@@ -2400,7 +2447,7 @@ namespace MiJia
 
         private System.Speech.Synthesis.SpeechSynthesizer synth = new System.Speech.Synthesis.SpeechSynthesizer() { };
         private string voice_default = string.Empty;
-        public void Speak(string text, int vol=100, int rate=0)
+        public void Speak(string text, int vol = 100, int rate = 0)
         {
             List<string> lang_cn = new List<string>() { "zh-hans", "zh-cn", "zh" };
             List<string> lang_tw = new List<string>() { "zh-hant", "zh-tw" };
@@ -2409,7 +2456,7 @@ namespace MiJia
 
             try
             {
-                if(string.IsNullOrEmpty(voice_default)) voice_default = synth.Voice.Name;
+                if (string.IsNullOrEmpty(voice_default)) voice_default = synth.Voice.Name;
 
                 synth.SelectVoice(voice_default);
                 //
@@ -2477,8 +2524,13 @@ namespace MiJia
             }
         }
 
+        public void Say(string text, int vol = 100, int rate = 0)
+        {
+            Speak(text, vol, rate);
+        }
+
         private List<string> logger = new List<string>();
-        public List<string> Logger { get { return(logger); } }
+        public List<string> Logger { get { return (logger); } }
         public void Print(string text)
         {
             logger.Add(text);

@@ -59,7 +59,7 @@ namespace MiJia
             var opts = Environment.CommandLine.Split();
             if (opts.Length > 1)
             {
-                if(!string.IsNullOrEmpty(opts[1]) && File.Exists(opts[1])) SCRIPT_FILE = opts[1];
+                if (!string.IsNullOrEmpty(opts[1]) && File.Exists(opts[1])) SCRIPT_FILE = opts[1];
             }
 
             var configFile = Path.Combine(basepath, "config", "aqara.json");
@@ -97,7 +97,21 @@ namespace MiJia
 
         private void tsmiShowForm_Click(object sender, EventArgs e)
         {
-            if(!Visible) SetHide(false);
+            if (!Visible) SetHide(false);
+        }
+
+        private void tsmiResetGateway_Click(object sender, EventArgs e)
+        {
+            var basepath = APPFOLDER;
+            if (Directory.Exists(APPFOLDER))
+                basepath = APPFOLDER;
+            else if (Directory.Exists(SKYFOLDER))
+                basepath = SKYFOLDER;
+            else if (Directory.Exists(DOCFOLDER))
+                basepath = DOCFOLDER;
+
+            var configFile = Path.Combine(basepath, "config", "aqara.json");
+            engine.InitMiJiaGateway(basepath, configFile);
         }
 
         private void tsmiExit_Click(object sender, EventArgs e)
@@ -109,10 +123,10 @@ namespace MiJia
 
         private async void btnTest_Click(object sender, EventArgs e)
         {
-            if ( engine is ScriptEngine)
+            if (engine is ScriptEngine)
             {
                 var ret = await engine.RunScript(true, true);
-            }                
+            }
         }
 
         private void btnReloadScript_Click(object sender, EventArgs e)
@@ -144,7 +158,7 @@ namespace MiJia
                 if (engine is ScriptEngine) engine.Pausing = chkPause.Checked;
                 tsmiPause.Checked = chkPause.Checked;
             }
-            else if(sender == tsmiPause)
+            else if (sender == tsmiPause)
             {
                 chkPause.Checked = tsmiPause.Checked;
             }
@@ -152,12 +166,12 @@ namespace MiJia
 
         private void chkOnTop_CheckedChanged(object sender, EventArgs e)
         {
-            if(sender == chkOnTop)
+            if (sender == chkOnTop)
             {
                 TopMost = chkOnTop.Checked;
                 tsmiOnTop.Checked = chkOnTop.Checked;
             }
-            else if(sender == tsmiOnTop)
+            else if (sender == tsmiOnTop)
             {
                 chkOnTop.Checked = tsmiOnTop.Checked;
             }
@@ -165,14 +179,15 @@ namespace MiJia
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            #if !DEBUG
+#if !DEBUG
             var ret = MessageBox.Show(this, "Exit?", "Question", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
             if ( ret != DialogResult.Yes)
             {
                 e.Cancel = true;
             }
-            #endif
+#endif
         }
+
     }
 
 }
