@@ -1005,9 +1005,9 @@ namespace MiJia
             }
         }
 
-        public void Minimize(string[] windows)
+        public void Minimize(IEnumerable<string> windows)
         {
-            if (windows.Length == 0)
+            if (windows.Count() == 0)
                 AutoItX.WinMinimizeAll();
             else
             {
@@ -1285,7 +1285,7 @@ namespace MiJia
             return (result);
         }
 
-        public List<Process> GetProcessesByName(string[] names, bool regex = false)
+        public List<Process> GetProcessesByName(IEnumerable<string> names, bool regex = false)
         {
             List<Process> result = new List<Process>();
 
@@ -1333,7 +1333,7 @@ namespace MiJia
             return (result);
         }
 
-        public List<Process> GetProcessesByTitle(string[] titles, bool regex = false)
+        public List<Process> GetProcessesByTitle(IEnumerable<string> titles, bool regex = false)
         {
             List<Process> result = null;
 
@@ -1478,7 +1478,7 @@ namespace MiJia
             return (result);
         }
 
-        internal void KillProcess(string[] processNames)
+        internal void KillProcess(IEnumerable<string> processNames)
         {
             foreach (var processName in processNames)
             {
@@ -1513,7 +1513,7 @@ namespace MiJia
             KillProcess(processName);
         }
 
-        public void Kill(string[] processList)
+        public void Kill(IEnumerable<string> processList)
         {
             KillProcess(processList);
         }
@@ -1643,6 +1643,18 @@ namespace MiJia
         private bool InternalPlay = false;
         private NAudio.Wave.WaveOut waveOut = new NAudio.Wave.WaveOut();
 
+        // Application Mute/UnMute/ToggleMute
+        public void AppMute(MUTE_MODE mode, IEnumerable<string> apps)
+        {
+            if(apps is IEnumerable<string>)
+            {
+                foreach(var app in apps)
+                {
+                    AppMute(mode, app);
+                }
+            }
+        }
+
         public void AppMute(MUTE_MODE mode, string app = default(string))
         {
             try
@@ -1687,8 +1699,9 @@ namespace MiJia
                                     if (//session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
                                         !session.IsSystemSoundsSession &&
                                         (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) ||
-                                        Regex.IsMatch(app, title, RegexOptions.IgnoreCase) ||
-                                        Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
+                                        (!string.IsNullOrEmpty(title) && 
+                                        (Regex.IsMatch(app, title, RegexOptions.IgnoreCase) ||
+                                        Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))))
                                     {
                                         switch (mode)
                                         {
@@ -1722,9 +1735,31 @@ namespace MiJia
             }
         }
 
+        public void AppMute(IEnumerable<string> apps)
+        {
+            if (apps is IEnumerable<string>)
+            {
+                foreach (var app in apps)
+                {
+                    AppMute(app);
+                }
+            }
+        }
+
         public void AppMute(string app = default(string))
         {
             AppMute(MUTE_MODE.Mute, app);
+        }
+
+        public void AppUnMute(IEnumerable<string> apps)
+        {
+            if (apps is IEnumerable<string>)
+            {
+                foreach (var app in apps)
+                {
+                    AppUnMute(app);
+                }
+            }
         }
 
         public void AppUnMute(string app = default(string))
@@ -1732,14 +1767,48 @@ namespace MiJia
             AppMute(MUTE_MODE.UnMute, app);
         }
 
+        public void AppToggleMute(IEnumerable<string> apps)
+        {
+            if (apps is IEnumerable<string>)
+            {
+                foreach (var app in apps)
+                {
+                    AppToggleMute(app);
+                }
+            }
+        }
+
         public void AppToggleMute(string app = default(string))
         {
             AppMute(MUTE_MODE.Toggle, app);
         }
 
+        public void AppBackgroundMute(IEnumerable<string> apps)
+        {
+            if (apps is IEnumerable<string>)
+            {
+                foreach (var app in apps)
+                {
+                    AppBackgroundMute(app);
+                }
+            }
+        }
+
         public void AppBackgroundMute(string app = default(string))
         {
             AppMute(MUTE_MODE.Background, app);
+        }
+
+        // Device Mute/UnMute/ToggleMute
+        public void Mute(MUTE_MODE mode, IEnumerable<string> devices)
+        {
+            if (devices is IEnumerable<string>)
+            {
+                foreach (var device in devices)
+                {
+                    Mute(mode, device);
+                }
+            }
         }
 
         public void Mute(MUTE_MODE mode, string device = default(string))
@@ -1804,14 +1873,47 @@ namespace MiJia
             }
         }
 
+        public void Mute(IEnumerable<string> devices)
+        {
+            if (devices is IEnumerable<string>)
+            {
+                foreach (var device in devices)
+                {
+                    Mute(device);
+                }
+            }
+        }
+
         public void Mute(string device = default(string))
         {
             Mute(MUTE_MODE.Mute, device);
         }
 
+        public void UnMute(IEnumerable<string> devices)
+        {
+            if (devices is IEnumerable<string>)
+            {
+                foreach (var device in devices)
+                {
+                    UnMute(device);
+                }
+            }
+        }
+
         public void UnMute(string device = default(string))
         {
             Mute(MUTE_MODE.UnMute, device);
+        }
+
+        public void ToggleMute(IEnumerable<string> devices)
+        {
+            if (device is IEnumerable<string>)
+            {
+                foreach (var device in devices)
+                {
+                    ToggleMute(device);
+                }
+            }
         }
 
         public void ToggleMute(string device = default(string))
@@ -1821,9 +1923,37 @@ namespace MiJia
             //AutoItX.Sleep(10);
         }
 
+        public void BackgroundMute(IEnumerable<string> devices)
+        {
+            if (device is IEnumerable<string>)
+            {
+                foreach (var device in devices)
+                {
+                    BackgroundMute(device);
+                }
+            }
+        }
+
         public void BackgroundMute(string app = default(string))
         {
             Mute(MUTE_MODE.Background, app);
+        }
+
+        public bool Muted(IEnumerable<string> devices)
+        {
+            bool result = false;
+            if (device is IEnumerable<string>)
+            {
+                foreach (var device in devices)
+                {
+                    if (Muted(device))
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+            return (result);
         }
 
         public bool Muted(string device = default(string))
@@ -1872,6 +2002,23 @@ namespace MiJia
             return (result);
         }
 
+        public bool AppMuted(IEnumerable<string> apps)
+        {
+            bool result = false;
+            if (apps is IEnumerable<string>)
+            {
+                foreach (var app in apps)
+                {
+                    if (AppMuted(app))
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+            return (result);
+        }
+
         public bool AppMuted(string app = default(string))
         {
             bool result = false;
@@ -1907,15 +2054,15 @@ namespace MiJia
                                     var pname = process.ProcessName;
                                     if (!session.IsSystemSoundsSession &&
                                         (Regex.IsMatch(pname, app, RegexOptions.IgnoreCase) ||
-                                        Regex.IsMatch(app, title, RegexOptions.IgnoreCase) ||
-                                        Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))
+                                        (!string.IsNullOrEmpty(title) &&
+                                        (Regex.IsMatch(app, title, RegexOptions.IgnoreCase) ||
+                                        Regex.IsMatch(title, app, RegexOptions.IgnoreCase)))))
                                     {
                                         if (session.SimpleAudioVolume.Mute)
                                         {
                                             result = true;
                                             break;
                                         }
-
                                     }
                                 }
                             }
@@ -1974,7 +2121,7 @@ namespace MiJia
             return (result);
         }
 
-        private bool DeviceIsActive(MMDevice dev, string[] apps)
+        private bool DeviceIsActive(MMDevice dev, IEnumerable<string> apps)
         {
             bool result = false;
 
@@ -1987,7 +2134,7 @@ namespace MiJia
                     if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
                         !session.IsSystemSoundsSession)
                     {
-                        if (!(apps is string[]) || apps.Length <= 0) result = true;
+                        if (!(apps is string[]) || apps.Count() <= 0) result = true;
                         else
                         {
                             var pid = session.GetProcessID;
@@ -2052,7 +2199,7 @@ namespace MiJia
             return (result);
         }
 
-        private bool DeviceIsActive(MMDevice dev, int[] pids)
+        private bool DeviceIsActive(MMDevice dev, IEnumerable<int> pids)
         {
             bool result = false;
 
@@ -2065,7 +2212,7 @@ namespace MiJia
                     if (session.State == NAudio.CoreAudioApi.Interfaces.AudioSessionState.AudioSessionStateActive &&
                         !session.IsSystemSoundsSession)
                     {
-                        if (!(pids is int[]) || pids.Length <= 0) result = true;
+                        if (!(pids is int[]) || pids.Count() <= 0) result = true;
                         else
                         {
                             var pid = session.GetProcessID;
@@ -2128,13 +2275,13 @@ namespace MiJia
             return (result);
         }
 
-        private bool MediaIsActive(DataFlow mode, string[] apps)
+        private bool MediaIsActive(DataFlow mode, IEnumerable<string> apps)
         {
             bool result = false;
 
             try
             {
-                if (!(apps is string[]) || apps.Length <= 0)
+                if (!(apps is string[]) || apps.Count() <= 0)
                 {
                     MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(mode, Role.Multimedia);
                     result = dev.State == NAudio.CoreAudioApi.DeviceState.Active;
@@ -2199,13 +2346,13 @@ namespace MiJia
             return (result);
         }
 
-        private bool MediaIsActive(DataFlow mode, int[] pids)
+        private bool MediaIsActive(DataFlow mode, IEnumerable<int> pids)
         {
             bool result = false;
 
             try
             {
-                if (!(pids is int[]) || pids.Length <= 0)
+                if (!(pids is int[]) || pids.Count() <= 0)
                 {
                     MMDevice dev = new MMDeviceEnumerator().GetDefaultAudioEndpoint(mode, Role.Multimedia);
                     result = dev.State == NAudio.CoreAudioApi.DeviceState.Active;
@@ -2242,7 +2389,7 @@ namespace MiJia
             return (result);
         }
 
-        public bool MediaIsOut(string[] apps)
+        public bool MediaIsOut(IEnumerable<string> apps)
         {
             bool result = false;
 
@@ -2260,7 +2407,7 @@ namespace MiJia
             return (result);
         }
 
-        public bool MediaIsOut(int[] pids)
+        public bool MediaIsOut(IEnumerable<int> pids)
         {
             bool result = false;
 
@@ -2278,7 +2425,7 @@ namespace MiJia
             return (result);
         }
 
-        public bool MediaIsIn(string[] apps)
+        public bool MediaIsIn(IEnumerable<string> apps)
         {
             bool result = false;
 
@@ -2296,7 +2443,7 @@ namespace MiJia
             return (result);
         }
 
-        public bool MediaIsIn(int[] pids)
+        public bool MediaIsIn(IEnumerable<int> pids)
         {
             bool result = false;
 
