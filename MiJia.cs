@@ -811,6 +811,7 @@ namespace MiJia
                         {
                             if (v.Name.Equals("Device", StringComparison.CurrentCultureIgnoreCase)) continue;
                             if (v.Name.Equals("EventLog", StringComparison.CurrentCultureIgnoreCase)) continue;
+                            if (v.Name.StartsWith("_")) continue;
 
                             sb.AppendLine($"{v.Name} = {v.Value}");
                             globals.vars[v.Name] = v.Value;
@@ -2689,5 +2690,69 @@ namespace MiJia
         }
 
         #endregion
+    }
+
+    public static class ReflectionExtensions
+    {
+        public static bool IsPublic(this object obj)
+        {
+            // Set the flags so that private and public fields from instances will be found
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
+            var field = obj.GetType().GetField("IsPublic", bindingFlags);
+
+            if (field == null) return (false);
+            else return (true);
+        }
+
+        public static bool IsPrivate(this object obj)
+        {
+            // Set the flags so that private and public fields from instances will be found
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
+            var field = obj.GetType().GetField("IsPrivate", bindingFlags);
+            if (field == null) return (false);
+            else return (true);
+        }
+
+        public static bool IsStatic(this object obj)
+        {
+            // Set the flags so that private and public fields from instances will be found
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
+            var field = obj.GetType().GetField("IsStatic", bindingFlags);
+            if (field == null) return (false);
+            else return (true);
+        }
+
+        public static bool IsSeal(this object obj)
+        {
+            // Set the flags so that private and public fields from instances will be found
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
+            var field = obj.GetType().GetField("IsSeal", bindingFlags);
+            if (field == null) return (false);
+            else return (true);
+        }
+
+        public static T GetFieldValue<T>(this object obj, string name)
+        {
+            // Set the flags so that private and public fields from instances will be found
+            var bindingFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+            var field = obj.GetType().GetField(name, bindingFlags);
+            return (T)field?.GetValue(obj);
+        }
+
+        public static T GetPublicFieldValue<T>(this object obj, string name)
+        {
+            // Set the flags so that private and public fields from instances will be found
+            var bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+            var field = obj.GetType().GetField(name, bindingFlags);
+            return (T)field?.GetValue(obj);
+        }
+
+        public static T GetPrivateFieldValue<T>(this object obj, string name)
+        {
+            // Set the flags so that private and public fields from instances will be found
+            var bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance;
+            var field = obj.GetType().GetField(name, bindingFlags);
+            return (T)field?.GetValue(obj);
+        }
     }
 }
