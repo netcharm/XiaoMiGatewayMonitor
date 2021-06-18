@@ -893,6 +893,16 @@ namespace MiJia
         private ManagementEventWatcher _watcherStart;
         private ManagementEventWatcher _watcherStop;
 
+        private ScreenPowerMgmt _screenMgmtPower;
+        private PowerMgmt _PowerStatus = PowerMgmt.On;
+        private void ScreenMgmtPower(object sender, ScreenPowerMgmtEventArgs e)
+        {
+            _PowerStatus = e.PowerStatus;
+            if      (e.PowerStatus == PowerMgmt.StandBy) logger.Add("StandBy Event!");
+            else if (e.PowerStatus == PowerMgmt.Off) logger.Add("Off Event!");
+            else if (e.PowerStatus == PowerMgmt.On) logger.Add("On Event!");
+        }
+
         public Globals()
         {
             if (IsAdmin)
@@ -904,6 +914,9 @@ namespace MiJia
                 _watcherStart.Start();
                 _watcherStop.Start();
             }
+
+            _screenMgmtPower = new ScreenPowerMgmt();
+            _screenMgmtPower.ScreenPower += ScreenMgmtPower;
 
             procs = Process.GetProcesses().ToDictionary(p => (uint)p.Id, p => p);
         }
@@ -1610,6 +1623,7 @@ namespace MiJia
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern bool LockWorkStation();
+
         public bool LockScreen()
         {
             return (LockWorkStation());
@@ -1625,7 +1639,7 @@ namespace MiJia
                 else
                     SendMessage(handle.ToInt32(), LCI_WM_SYSCommand, LCI_SC_MonitorPower, LCI_Power_Off);
             }
-            if (lockscreen) LockWorkStation();
+            if (lockscreen) LockScreen();
         }
         #endregion
 
@@ -1638,6 +1652,10 @@ namespace MiJia
         {
             Monitor(false, lockscreen);
         }
+
+        public bool IsMonitorOn { get { return (_PowerStatus == PowerMgmt.On || _PowerStatus == PowerMgmt.StandBy); } }
+        public bool IsMonitorOff { get { return (_PowerStatus == PowerMgmt.Off); } }
+
         #endregion
 
         #region Media routines
@@ -2562,14 +2580,7 @@ namespace MiJia
 
         public bool IsIdle(double secs = 10)
         {
-            bool result = false;
-
-            if (secs >= 0)
-            {
-                if (GetLastInputTime() >= secs) result = true;
-            }
-
-            return (result);
+            return(secs >= 0 && Idle >= secs ? true : false);
         }
 
         public void Beep(string type = default(string))
@@ -2689,8 +2700,69 @@ namespace MiJia
             logger.Add($"{content}");
         }
 
+        public void Log(dynamic content)
+        {
+            logger.Add($"{content}");
+        }
         #endregion
     }
+
+    #region Power Management Helper
+    //
+    // https://stackoverflow.com/questions/2208595/c-sharp-how-to-get-the-events-when-the-screen-display-goes-to-power-off-or-on
+    //
+
+    public enum PowerMgmt
+    {
+        StandBy,
+        Off,
+        On
+    };
+
+    public class ScreenPowerMgmtEventArgs
+    {
+        private PowerMgmt _PowerStatus;
+
+        public ScreenPowerMgmtEventArgs(PowerMgmt powerStat)
+        {
+            _PowerStatus = powerStat;
+        }
+
+        public PowerMgmt PowerStatus
+        {
+            get { return this._PowerStatus; }
+        }
+    }
+
+    public class ScreenPowerMgmt
+    {
+        public delegate void ScreenPowerMgmtEventHandler(object sender, ScreenPowerMgmtEventArgs e);
+        public event ScreenPowerMgmtEventHandler ScreenPower;
+
+        private void OnScreenPowerMgmtEvent(ScreenPowerMgmtEventArgs args)
+        {
+            ScreenPower?.Invoke(this, args);
+        }
+
+        public void SwitchMonitorOff()
+        {
+            /* The code to switch off */
+            OnScreenPowerMgmtEvent(new ScreenPowerMgmtEventArgs(PowerMgmt.Off));
+        }
+
+        public void SwitchMonitorOn()
+        {
+            /* The code to switch on */
+            OnScreenPowerMgmtEvent(new ScreenPowerMgmtEventArgs(PowerMgmt.On));
+        }
+
+        public void SwitchMonitorStandby()
+        {
+            /* The code to switch standby */
+            OnScreenPowerMgmtEvent(new ScreenPowerMgmtEventArgs(PowerMgmt.StandBy));
+        }
+    }
+    #endregion
 
     public static class ReflectionExtensions
     {
