@@ -14,6 +14,9 @@ namespace MiJia
         [STAThread]
         static void Main()
         {
+            NLog.LogManager.AutoShutdown = true;
+            NLog.LogManager.Configuration.DefaultCultureInfo = System.Globalization.CultureInfo.CurrentCulture;
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());
