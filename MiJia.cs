@@ -172,24 +172,26 @@ namespace MiJia
     }
     #endregion
 
-    public enum ConditionMode { AND, OR, NOR, XOR };
-    public class Condition<T>
+    public enum OpConditionMode { AND, OR, NOR, XOR };
+    public class OpCondition<T>
     {
-        public ConditionMode Mode;
+        public OpConditionMode Mode;
         public KeyValuePair<string, T> Param { get; set; }
     }
 
     public enum ActionMode { Close, Minimize, Maximize, Mute };
-    public class Action<T>
+    public class OpAction<T>
     {
         public string Name { get; set; }
         public ActionMode Mode { get; set; }
-        public IList<Condition<T>> Conditions { get; set; }
+        public IList<OpCondition<T>> Conditions { get; set; }
         public IList<string> Param { get; set; }
     }
 
     public static class Extensions
     {
+        private static NLog.Logger log = NLog.LogManager.GetCurrentClassLogger();
+
         private delegate void SetPropertyThreadSafeDelegate<TResult>(
             Control @this,
             Expression<Func<TResult>> property,
@@ -522,6 +524,8 @@ namespace MiJia
 
     public class ScriptEngine
     {
+        private static NLog.Logger log = NLog.LogManager.GetCurrentClassLogger();
+
         private static string APPFOLDER = Path.GetDirectoryName(Application.ExecutablePath);
         private string SKYFOLDER = Path.Combine(KnownFolders.GetPath(KnownFolder.SkyDrive), @"ApplicationData\ConnectedHome");
         private string DOCFOLDER = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), @"Elton\ConnectedHome\");
@@ -837,6 +841,8 @@ namespace MiJia
 
     public class DEVICE
     {
+        private static NLog.Logger log = NLog.LogManager.GetCurrentClassLogger();
+
         internal AqaraClient client = default(AqaraClient);
         public string State { get; internal set; } = string.Empty;
         public string StateName { get; internal set; } = string.Empty;
@@ -878,6 +884,8 @@ namespace MiJia
 
     public class Globals
     {
+        private static NLog.Logger log = NLog.LogManager.GetCurrentClassLogger();
+
         public enum MUTE_MODE { Mute, UnMute, Toggle, Background }
 
         private class ProcInfo
@@ -2703,6 +2711,7 @@ namespace MiJia
         public void Log(dynamic content)
         {
             logger.Add($"{content}");
+            log.Info($"{content}");
         }
         #endregion
     }
