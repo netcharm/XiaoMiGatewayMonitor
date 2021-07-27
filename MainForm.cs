@@ -73,18 +73,20 @@ namespace MiJia
             else btnTest.Visible = false;
             ContextMenuStrip = contextNotify;
 #else
+            chkOnTop.Checked = true;
             //SetHide(true);
+            this.WindowState = FormWindowState.Minimized;
 #endif
         }
 
         private void MainForm_Resize(object sender, EventArgs e)
         {
-            if (FormWindowState.Minimized == this.WindowState)
+            if (this.WindowState == FormWindowState.Minimized)
             {
                 SetHide(true);
             }
 
-            else if (FormWindowState.Normal == this.WindowState)
+            else if (this.WindowState == FormWindowState.Normal)
             {
                 SetHide(false);
             }

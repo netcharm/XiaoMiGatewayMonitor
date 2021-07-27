@@ -932,8 +932,11 @@ namespace MiJia
 
             if (tbi == null)
             {
+                var title = Regex.Replace(Title, $@"[{string.Join("|", Path.GetInvalidFileNameChars())}]", "_", RegexOptions.IgnoreCase);
                 tbi = new Hardcodet.Wpf.TaskbarNotification.TaskbarIcon()
                 {
+                    Name = title,
+                    Uid = title, 
                     Visibility = System.Windows.Visibility.Collapsed,
                     Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath),
                     SnapsToDevicePixels = true,

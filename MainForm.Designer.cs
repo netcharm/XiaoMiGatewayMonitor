@@ -144,7 +144,7 @@
             this.tsmiSep3,
             this.tsmiExit});
             this.contextNotify.Name = "contextNotify";
-            this.contextNotify.Size = new System.Drawing.Size(164, 220);
+            this.contextNotify.Size = new System.Drawing.Size(164, 198);
             // 
             // tsmiOnTop
             // 
@@ -185,7 +185,7 @@
             this.tsmiTest.Name = "tsmiTest";
             this.tsmiTest.Size = new System.Drawing.Size(163, 22);
             this.tsmiTest.Text = "Test Script";
-            this.tsmiTest.DoubleClick += new System.EventHandler(this.btnTest_Click);
+            this.tsmiTest.Click += new System.EventHandler(this.btnTest_Click);
             // 
             // tsmiPause
             // 
