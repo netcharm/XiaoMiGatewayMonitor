@@ -911,6 +911,8 @@ namespace MiJia
             else if (e.PowerStatus == PowerMgmt.On) logger.Add("On Event!");
         }
 
+        private Hardcodet.Wpf.TaskbarNotification.TaskbarIcon tbi = null;
+
         public Globals()
         {
             if (IsAdmin)
@@ -927,6 +929,17 @@ namespace MiJia
             _screenMgmtPower.ScreenPower += ScreenMgmtPower;
 
             procs = Process.GetProcesses().ToDictionary(p => (uint)p.Id, p => p);
+
+            if (tbi == null)
+            {
+                tbi = new Hardcodet.Wpf.TaskbarNotification.TaskbarIcon()
+                {
+                    Visibility = System.Windows.Visibility.Collapsed,
+                    Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath),
+                    SnapsToDevicePixels = true,
+                    UseLayoutRounding = true
+                };
+            }
         }
 
         ~Globals()
@@ -935,6 +948,11 @@ namespace MiJia
             {
                 if (_watcherStop is ManagementEventWatcher) _watcherStop.Stop();
                 if (_watcherStart is ManagementEventWatcher) _watcherStart.Stop();
+            }
+
+            if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
+            {
+                tbi.Dispose();
             }
         }
 
@@ -2712,6 +2730,53 @@ namespace MiJia
         {
             logger.Add($"{content}");
             log.Info($"{content}");
+        }
+
+        public string Title
+        {
+            get
+            {
+                var entryAssembly = Assembly.GetEntryAssembly();
+                var applicationTitle = ((AssemblyTitleAttribute)entryAssembly.GetCustomAttributes(typeof(AssemblyTitleAttribute), false)[0]).Title;
+                if (string.IsNullOrWhiteSpace(applicationTitle))
+                {
+                    applicationTitle = entryAssembly.GetName().Name;
+                }
+                return (applicationTitle);
+            }
+        }
+
+        //private var appbar = new Hardcodet.Wpf.TaskbarNotification.Interop.AppBarInfo();
+        public void Toast(string content, string title = "", MessageBoxIcon icon = MessageBoxIcon.None)
+        {
+            if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
+            {
+                var ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
+                switch(icon)
+                {
+                    case MessageBoxIcon.Information:
+                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info;
+                        break;
+                    case MessageBoxIcon.Warning:
+                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Warning;
+                        break;
+                    case MessageBoxIcon.Error:
+                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Error;
+                        break;
+                    default:
+                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
+                        break;
+                }
+                if (string.IsNullOrEmpty(title)) title = Title;
+                tbi.Visibility = System.Windows.Visibility.Visible;
+                tbi.ShowBalloonTip(title, content, ballon_icon);
+                tbi.Visibility = System.Windows.Visibility.Collapsed;
+            }
+        }
+
+        public void Notify(string content, string title = "", MessageBoxIcon icon = MessageBoxIcon.None)
+        {
+            Toast(content, title, icon);
         }
         #endregion
     }
