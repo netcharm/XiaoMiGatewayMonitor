@@ -36,6 +36,40 @@ namespace MiJia
             //notifyIcon.Visible = hide;
         }
 
+        private Action<string, string, MessageBoxIcon> NotifyAction { get; set; } = null;
+        private void InitNotifyIcon()
+        {
+            notifyIcon.Icon = Icon;
+            notifyIcon.Text = Text;
+            notifyIcon.BalloonTipTitle = Text;
+            notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
+
+            NotifyAction = new Action<string, string, MessageBoxIcon>((content, title, icon) =>
+            {
+                if (notifyIcon is NotifyIcon)
+                {
+                    if (string.IsNullOrEmpty(title)) title = Text;
+                    ToolTipIcon ballon_icon = ToolTipIcon.None;
+                    switch (icon)
+                    {
+                        case MessageBoxIcon.Information:
+                            ballon_icon = ToolTipIcon.Info;
+                            break;
+                        case MessageBoxIcon.Warning:
+                            ballon_icon = ToolTipIcon.Warning;
+                            break;
+                        case MessageBoxIcon.Error:
+                            ballon_icon = ToolTipIcon.Error;
+                            break;
+                        default:
+                            ballon_icon = ToolTipIcon.None;
+                            break;
+                    }
+                    notifyIcon.ShowBalloonTip(5, title, content, ballon_icon);
+                }
+            });
+        }
+
         public MainForm()
         {
             InitializeComponent();
@@ -44,9 +78,7 @@ namespace MiJia
         private void MainForm_Load(object sender, EventArgs e)
         {
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-            notifyIcon.Icon = Icon;
-            notifyIcon.Text = this.Text;
-            notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
+            InitNotifyIcon();
 
             var basepath = APPFOLDER;
             if (Directory.Exists(APPFOLDER))
@@ -65,6 +97,7 @@ namespace MiJia
             var configFile = Path.Combine(basepath, "config", "aqara.json");
             if (engine is ScriptEngine)
             {
+                engine.NotificationAction = NotifyAction;
                 engine.Init(basepath, configFile, edResult);
                 engine.ScriptFile = SCRIPT_FILE;
             }

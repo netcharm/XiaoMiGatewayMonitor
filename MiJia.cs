@@ -534,6 +534,8 @@ namespace MiJia
         public bool Pausing { get; set; } = false;
         public TextBox Logger { get; set; } = null;
 
+        public Action<string, string, MessageBoxIcon> NotificationAction { get; set; } = null;
+
         #region MiJiaGateway routines
         private Timer timerRefresh = null;
         private int interval = 1000;
@@ -666,7 +668,6 @@ namespace MiJia
             timerRefresh.Interval = Interval;
             timerRefresh.Start();
         }
-
         #endregion
 
         #region CSharp Script routines
@@ -709,6 +710,11 @@ namespace MiJia
                             Assembly.GetAssembly(typeof(JsonConvert)),
                             Assembly.GetAssembly(typeof(AqaraDevice)),
                             Assembly.GetAssembly(typeof(StateChangedEventArgs)),
+                            Assembly.GetAssembly(typeof(MessageBox)),
+                            Assembly.GetAssembly(typeof(MessageBoxButtons)),
+                            Assembly.GetAssembly(typeof(MessageBoxDefaultButton)),
+                            Assembly.GetAssembly(typeof(MessageBoxIcon)),
+                            Assembly.GetAssembly(typeof(MessageBoxOptions)),
                             Assembly.GetCallingAssembly(),
                             Assembly.GetEntryAssembly(),
                             Assembly.GetExecutingAssembly(),
@@ -762,6 +768,7 @@ namespace MiJia
             InitMiJiaGateway(basepath, configFile);
             scriptOptions = InitScriptEngine();
             if (logger is TextBox) Logger = logger;
+            if (globals is Globals) globals.NotificationAction = NotificationAction;
         }
 
         internal async Task<ScriptState> RunScript(bool AutoReset = false, bool IsTest = false)
@@ -912,6 +919,23 @@ namespace MiJia
         }
 
         private Hardcodet.Wpf.TaskbarNotification.TaskbarIcon tbi = null;
+        private void InitNotification()
+        {
+            if (tbi == null)
+            {
+                var title = Regex.Replace(Title, $@"[{string.Join("|", Path.GetInvalidFileNameChars())}]", "_", RegexOptions.IgnoreCase);
+                tbi = new Hardcodet.Wpf.TaskbarNotification.TaskbarIcon()
+                {
+                    Name = title,
+                    Uid = title,
+                    Visibility = System.Windows.Visibility.Collapsed,
+                    Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath),
+                    SnapsToDevicePixels = true,
+                    UseLayoutRounding = true
+                };
+            }
+        }
+        public Action<string, string, MessageBoxIcon> NotificationAction { get; set; } = null;
 
         public Globals()
         {
@@ -929,20 +953,6 @@ namespace MiJia
             _screenMgmtPower.ScreenPower += ScreenMgmtPower;
 
             procs = Process.GetProcesses().ToDictionary(p => (uint)p.Id, p => p);
-
-            if (tbi == null)
-            {
-                var title = Regex.Replace(Title, $@"[{string.Join("|", Path.GetInvalidFileNameChars())}]", "_", RegexOptions.IgnoreCase);
-                tbi = new Hardcodet.Wpf.TaskbarNotification.TaskbarIcon()
-                {
-                    Name = title,
-                    Uid = title, 
-                    Visibility = System.Windows.Visibility.Collapsed,
-                    Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath),
-                    SnapsToDevicePixels = true,
-                    UseLayoutRounding = true
-                };
-            }
         }
 
         ~Globals()
@@ -2752,10 +2762,16 @@ namespace MiJia
         //private var appbar = new Hardcodet.Wpf.TaskbarNotification.Interop.AppBarInfo();
         public void Toast(string content, string title = "", MessageBoxIcon icon = MessageBoxIcon.None)
         {
-            if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
+            if (string.IsNullOrEmpty(title)) title = Title;
+
+            if (NotificationAction is Action<string, string, MessageBoxIcon>)
+            {
+                NotificationAction.Invoke(content, title, icon);
+            }
+            else if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
             {
                 var ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
-                switch(icon)
+                switch (icon)
                 {
                     case MessageBoxIcon.Information:
                         ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info;
@@ -2770,7 +2786,7 @@ namespace MiJia
                         ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
                         break;
                 }
-                if (string.IsNullOrEmpty(title)) title = Title;
+
                 tbi.Visibility = System.Windows.Visibility.Visible;
                 tbi.ShowBalloonTip(title, content, ballon_icon);
                 tbi.Visibility = System.Windows.Visibility.Collapsed;
