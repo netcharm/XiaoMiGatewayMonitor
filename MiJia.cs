@@ -15,6 +15,7 @@ using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -522,7 +523,7 @@ namespace MiJia
 
     }
 
-    public class ScriptEngine
+    public class ScriptEngine : IDisposable
     {
         private static NLog.Logger log = NLog.LogManager.GetCurrentClassLogger();
 
@@ -537,7 +538,7 @@ namespace MiJia
         public Action<string, string, MessageBoxIcon> NotificationAction { get; set; } = null;
 
         #region MiJiaGateway routines
-        private Timer timerRefresh = null;
+        private System.Windows.Forms.Timer timerRefresh = null;
         private int interval = 1000;
         public int Interval
         {
@@ -545,7 +546,7 @@ namespace MiJia
             set
             {
                 interval = value;
-                if (timerRefresh is Timer)
+                if (timerRefresh is System.Windows.Forms.Timer)
                 {
                     if (timerRefresh.Enabled) timerRefresh.Stop();
                     timerRefresh.Interval = value;
@@ -608,7 +609,7 @@ namespace MiJia
         }
 
         private Task worker = null;
-        private System.Threading.CancellationToken workerCancelToken = new System.Threading.CancellationToken();
+        private CancellationToken workerCancelToken = new System.Threading.CancellationToken();
         private AqaraConfig config = null;
         private AqaraClient client = null;
         private Dictionary<string, dynamic> Devices = new Dictionary<string, dynamic>();
@@ -662,8 +663,8 @@ namespace MiJia
                 client.DoWork(workerCancelToken);
             }, workerCancelToken);
 
-            if (timerRefresh is Timer) timerRefresh.Stop();
-            timerRefresh = new Timer();
+            if (timerRefresh is System.Windows.Forms.Timer) timerRefresh.Stop();
+            timerRefresh = new System.Windows.Forms.Timer();
             timerRefresh.Tick += TimerRefresh_Tick;
             timerRefresh.Interval = Interval;
             timerRefresh.Start();
@@ -694,7 +695,7 @@ namespace MiJia
         }
 
         private Globals globals = new Globals();
-        private System.Threading.CancellationToken cancelToken = new System.Threading.CancellationToken();
+        private CancellationTokenSource cancelSource = new CancellationTokenSource();
 
         private Script script;
         private InteractiveAssemblyLoader loader = new InteractiveAssemblyLoader();
@@ -705,50 +706,50 @@ namespace MiJia
             scriptOptions = ScriptOptions.Default;
             //options = options.AddReferences(AppDomain.CurrentDomain.GetAssemblies());
             scriptOptions = scriptOptions.AddReferences(new Assembly[] {
-                            Assembly.GetAssembly(typeof(Path)),
-                            Assembly.GetAssembly(typeof(AutoItX)),
-                            Assembly.GetAssembly(typeof(JsonConvert)),
-                            Assembly.GetAssembly(typeof(AqaraDevice)),
-                            Assembly.GetAssembly(typeof(StateChangedEventArgs)),
-                            Assembly.GetAssembly(typeof(MessageBox)),
-                            Assembly.GetAssembly(typeof(MessageBoxButtons)),
-                            Assembly.GetAssembly(typeof(MessageBoxDefaultButton)),
-                            Assembly.GetAssembly(typeof(MessageBoxIcon)),
-                            Assembly.GetAssembly(typeof(MessageBoxOptions)),
-                            Assembly.GetCallingAssembly(),
-                            Assembly.GetEntryAssembly(),
-                            Assembly.GetExecutingAssembly(),
-                            Assembly.GetAssembly(typeof(System.Globalization.CultureInfo)),
-                            Assembly.GetAssembly(typeof(Color)),
-                            Assembly.GetAssembly(typeof(Math)),
-                            Assembly.GetAssembly(typeof(Regex)),
-                            Assembly.GetAssembly(typeof(DynamicObject)),  // System.Dynamic
-                            Assembly.GetAssembly(typeof(ExpandoObject)), // System.Dynamic
-                            Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
-                            Assembly.GetAssembly(typeof(Enumerable)), // Linq
-                            Assembly.GetAssembly(typeof(DefaultExpression)), // Linq Expression
-                            Assembly.GetAssembly(typeof(KnownFolders)), // KnownFolderPaths
-                        });
+                Assembly.GetAssembly(typeof(Path)),
+                Assembly.GetAssembly(typeof(AutoItX)),
+                Assembly.GetAssembly(typeof(JsonConvert)),
+                Assembly.GetAssembly(typeof(AqaraDevice)),
+                Assembly.GetAssembly(typeof(StateChangedEventArgs)),
+                Assembly.GetAssembly(typeof(MessageBox)),
+                Assembly.GetAssembly(typeof(MessageBoxButtons)),
+                Assembly.GetAssembly(typeof(MessageBoxDefaultButton)),
+                Assembly.GetAssembly(typeof(MessageBoxIcon)),
+                Assembly.GetAssembly(typeof(MessageBoxOptions)),
+                Assembly.GetCallingAssembly(),
+                Assembly.GetEntryAssembly(),
+                Assembly.GetExecutingAssembly(),
+                Assembly.GetAssembly(typeof(System.Globalization.CultureInfo)),
+                Assembly.GetAssembly(typeof(Color)),
+                Assembly.GetAssembly(typeof(Math)),
+                Assembly.GetAssembly(typeof(Regex)),
+                Assembly.GetAssembly(typeof(DynamicObject)),  // System.Dynamic
+                Assembly.GetAssembly(typeof(ExpandoObject)), // System.Dynamic
+                Assembly.GetAssembly(typeof(Microsoft.CSharp.RuntimeBinder.CSharpArgumentInfo)),  // Microsoft.CSharp
+                Assembly.GetAssembly(typeof(Enumerable)), // Linq
+                Assembly.GetAssembly(typeof(DefaultExpression)), // Linq Expression
+                Assembly.GetAssembly(typeof(KnownFolders)), // KnownFolderPaths
+            });
             scriptOptions = scriptOptions.AddImports(new string[] {
-                            "System",
-                            "System.Collections.Generic",
-                            "System.Collections.Specialized",
-                            "System.Dynamic",
-                            "System.Drawing",
-                            "System.Globalization",
-                            "System.IO",
-                            "System.Linq",
-                            "System.Linq.Expressions",
-                            "System.Math",
-                            "System.Text",
-                            "System.Text.RegularExpressions",
-                            "System.Windows.Forms",
-                            "AutoIt",
-                            "KnownFolderPaths",
-                            "Newtonsoft.Json",
-                            "Elton.Aqara",
-                            "MiJia",
-                        });
+                "System",
+                "System.Collections.Generic",
+                "System.Collections.Specialized",
+                "System.Dynamic",
+                "System.Drawing",
+                "System.Globalization",
+                "System.IO",
+                "System.Linq",
+                "System.Linq.Expressions",
+                "System.Math",
+                "System.Text",
+                "System.Text.RegularExpressions",
+                "System.Windows.Forms",
+                "AutoIt",
+                "KnownFolderPaths",
+                "Newtonsoft.Json",
+                "Elton.Aqara",
+                "MiJia",
+            });
 
             if (File.Exists(scriptFile))
                 Load(File.ReadAllText(scriptFile));
@@ -801,7 +802,8 @@ namespace MiJia
                     if (!(script is Script)) Load();
                     if (script is Script)
                     {
-                        result = await script.RunAsync(globals, cancelToken);
+                        if (!(cancelSource is CancellationTokenSource) || cancelSource.IsCancellationRequested) cancelSource = new CancellationTokenSource();
+                        result = await script.RunAsync(globals, cancelSource.Token);
                     }
                     if (AutoReset) globals.Reset();
                     globals.vars.Clear();
@@ -843,10 +845,47 @@ namespace MiJia
             sciptRunning = false;
             return (result);
         }
+
+        #region IDisposable Support
+        private bool disposedValue = false; // 要检测冗余调用
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: 释放托管状态(托管对象)。
+                    if (cancelSource is CancellationTokenSource && !cancelSource.IsCancellationRequested) cancelSource.Cancel();
+                }
+
+                // TODO: 释放未托管的资源(未托管的对象)并在以下内容中替代终结器。
+                // TODO: 将大型字段设置为 null。
+
+                disposedValue = true;
+            }
+        }
+
+        // TODO: 仅当以上 Dispose(bool disposing) 拥有用于释放未托管资源的代码时才替代终结器。
+        // ~ScriptEngine() {
+        //   // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
+        //   Dispose(false);
+        // }
+
+        // 添加此代码以正确实现可处置模式。
+        public void Dispose()
+        {
+            // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
+            Dispose(true);
+            // TODO: 如果在以上内容中替代了终结器，则取消注释以下行。
+            // GC.SuppressFinalize(this);
+        }
+        #endregion
+
         #endregion
     }
 
-    public class DEVICE
+    public class DEVICE : IDisposable
     {
         private static NLog.Logger log = NLog.LogManager.GetCurrentClassLogger();
 
@@ -887,9 +926,46 @@ namespace MiJia
                 Info.NewStateName = string.Empty;
             }
         }
+
+        #region IDisposable Support
+        private bool disposedValue = false; // 要检测冗余调用
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: 释放托管状态(托管对象)。
+                    if (Properties is Dictionary<string, string>) { Properties.Clear(); Properties = null; }
+                    if (client is AqaraClient) { client.CancellationPending = true; }
+                }
+
+                // TODO: 释放未托管的资源(未托管的对象)并在以下内容中替代终结器。
+                // TODO: 将大型字段设置为 null。
+
+                disposedValue = true;
+            }
+        }
+
+        // TODO: 仅当以上 Dispose(bool disposing) 拥有用于释放未托管资源的代码时才替代终结器。
+        // ~DEVICE() {
+        //   // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
+        //   Dispose(false);
+        // }
+
+        // 添加此代码以正确实现可处置模式。
+        public void Dispose()
+        {
+            // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
+            Dispose(true);
+            // TODO: 如果在以上内容中替代了终结器，则取消注释以下行。
+            // GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 
-    public class Globals
+    public class Globals : IDisposable
     {
         private static NLog.Logger log = NLog.LogManager.GetCurrentClassLogger();
 
@@ -919,6 +995,7 @@ namespace MiJia
         }
 
         private Hardcodet.Wpf.TaskbarNotification.TaskbarIcon tbi = null;
+
         private void InitNotification()
         {
             if (tbi == null)
@@ -935,7 +1012,53 @@ namespace MiJia
                 };
             }
         }
+
         public Action<string, string, MessageBoxIcon> NotificationAction { get; set; } = null;
+
+        #region IDisposable Support
+        private bool disposedValue = false; // 要检测冗余调用
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: 释放托管状态(托管对象)。
+                    if (IsAdmin)
+                    {
+                        if (_watcherStop is ManagementEventWatcher) _watcherStop.Stop();
+                        if (_watcherStart is ManagementEventWatcher) _watcherStart.Stop();
+                    }
+
+                    if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
+                    {
+                        tbi.Dispose();
+                    }
+                }
+
+                // TODO: 释放未托管的资源(未托管的对象)并在以下内容中替代终结器。
+                // TODO: 将大型字段设置为 null。
+
+                disposedValue = true;
+            }
+        }
+
+        // TODO: 仅当以上 Dispose(bool disposing) 拥有用于释放未托管资源的代码时才替代终结器。
+        // ~Globals() {
+        //   // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
+        //   Dispose(false);
+        // }
+
+        // 添加此代码以正确实现可处置模式。
+        public void Dispose()
+        {
+            // 请勿更改此代码。将清理代码放入以上 Dispose(bool disposing) 中。
+            Dispose(true);
+            // TODO: 如果在以上内容中替代了终结器，则取消注释以下行。
+            // GC.SuppressFinalize(this);
+        }
+        #endregion
 
         public Globals()
         {
@@ -957,16 +1080,7 @@ namespace MiJia
 
         ~Globals()
         {
-            if (IsAdmin)
-            {
-                if (_watcherStop is ManagementEventWatcher) _watcherStop.Stop();
-                if (_watcherStart is ManagementEventWatcher) _watcherStart.Stop();
-            }
-
-            if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
-            {
-                tbi.Dispose();
-            }
+            Dispose(true);
         }
 
         internal bool isTest = false;
@@ -2801,29 +2915,33 @@ namespace MiJia
             {
                 NotificationAction.Invoke(content, title, icon);
             }
-            else if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
+            else
             {
-                if (string.IsNullOrEmpty(title)) title = Title;
-                var ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
-                switch (icon)
+                InitNotification();
+                if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
                 {
-                    case MessageBoxIcon.Information:
-                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info;
-                        break;
-                    case MessageBoxIcon.Warning:
-                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Warning;
-                        break;
-                    case MessageBoxIcon.Error:
-                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Error;
-                        break;
-                    default:
-                        ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
-                        break;
-                }
+                    if (string.IsNullOrEmpty(title)) title = Title;
+                    var ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
+                    switch (icon)
+                    {
+                        case MessageBoxIcon.Information:
+                            ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info;
+                            break;
+                        case MessageBoxIcon.Warning:
+                            ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Warning;
+                            break;
+                        case MessageBoxIcon.Error:
+                            ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Error;
+                            break;
+                        default:
+                            ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
+                            break;
+                    }
 
-                tbi.Visibility = System.Windows.Visibility.Visible;
-                tbi.ShowBalloonTip(title, content, ballon_icon);
-                tbi.Visibility = System.Windows.Visibility.Collapsed;
+                    tbi.Visibility = System.Windows.Visibility.Visible;
+                    tbi.ShowBalloonTip(title, content, ballon_icon);
+                    tbi.Visibility = System.Windows.Visibility.Collapsed;
+                }
             }
         }
 
