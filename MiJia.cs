@@ -2760,16 +2760,50 @@ namespace MiJia
         }
 
         //private var appbar = new Hardcodet.Wpf.TaskbarNotification.Interop.AppBarInfo();
+        public void Toast(string content, string title = "", string icon = "none")
+        {
+            MessageBoxIcon ballon_icon = MessageBoxIcon.None;
+            switch(icon.ToLower())
+            {
+                case "info":
+                    ballon_icon = MessageBoxIcon.Information;
+                    break;
+                case "information":
+                    ballon_icon = MessageBoxIcon.Information;
+                    break;
+                case "warn":
+                    ballon_icon = MessageBoxIcon.Warning;
+                    break;
+                case "warning":
+                    ballon_icon = MessageBoxIcon.Warning;
+                    break;
+                case "err":
+                    ballon_icon = MessageBoxIcon.Error;
+                    break;
+                case "error":
+                    ballon_icon = MessageBoxIcon.Error;
+                    break;
+                default:
+                    ballon_icon = MessageBoxIcon.None;
+                    break;
+            }
+            Toast(content, title, ballon_icon);
+        }
+
+        public void Notify(string content, string title = "", string icon = "none")
+        {
+            Toast(content, title, icon);
+        }
+
         public void Toast(string content, string title = "", MessageBoxIcon icon = MessageBoxIcon.None)
         {
-            if (string.IsNullOrEmpty(title)) title = Title;
-
             if (NotificationAction is Action<string, string, MessageBoxIcon>)
             {
                 NotificationAction.Invoke(content, title, icon);
             }
             else if (tbi is Hardcodet.Wpf.TaskbarNotification.TaskbarIcon)
             {
+                if (string.IsNullOrEmpty(title)) title = Title;
                 var ballon_icon = Hardcodet.Wpf.TaskbarNotification.BalloonIcon.None;
                 switch (icon)
                 {
