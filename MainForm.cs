@@ -19,21 +19,20 @@ namespace MiJia
 
         internal ScriptEngine engine = new ScriptEngine();
 
-        private void SetHide(bool hide = true)
+        private void SetHidden(bool hide = true)
         {
             if (hide)
             {
-                this.ShowInTaskbar = false;
-                this.WindowState = FormWindowState.Minimized;
-                this.Hide();
+                ShowInTaskbar = false;
+                WindowState = FormWindowState.Minimized;
+                Hide();
             }
             else
             {
-                this.ShowInTaskbar = true;
-                this.Show();
-                this.WindowState = FormWindowState.Normal;
+                ShowInTaskbar = true;
+                WindowState = FormWindowState.Normal;
+                Show();
             }
-            //notifyIcon.Visible = hide;
         }
 
         private Action<string, string, MessageBoxIcon> NotifyAction { get; set; } = null;
@@ -112,27 +111,109 @@ namespace MiJia
 #endif
         }
 
+        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
+        {
+#if !DEBUG
+            var ret = MessageBox.Show(this, "Exit?", "Question", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
+            if (ret != DialogResult.Yes)
+            {
+                e.Cancel = true;
+            }
+#endif
+        }
+
         private void MainForm_Resize(object sender, EventArgs e)
         {
-            if (this.WindowState == FormWindowState.Minimized)
+            if (sender == this)
             {
-                SetHide(true);
-            }
-
-            else if (this.WindowState == FormWindowState.Normal)
-            {
-                SetHide(false);
+                switch(WindowState)
+                {
+                    case FormWindowState.Normal:
+                        SetHidden(false);
+                        break;
+                    case FormWindowState.Maximized:
+                        SetHidden(false);
+                        break;
+                    case FormWindowState.Minimized:
+                        SetHidden(true);
+                        break;
+                    default:
+                        break;
+                }
             }
         }
 
         private void notifyIcon_DoubleClick(object sender, EventArgs e)
         {
-            SetHide(false);
+            if (e is MouseEventArgs)
+            {
+                var me = e as MouseEventArgs;
+                if (me.Button == MouseButtons.Left && sender == notifyIcon)
+                {
+                    SetHidden(false);
+                }
+            }
+        }
+
+        private async void btnTest_Click(object sender, EventArgs e)
+        {
+            if (engine is ScriptEngine)
+            {
+                var ret = await engine.RunScript(true, true);
+            }
+        }
+
+        private void btnReloadScript_Click(object sender, EventArgs e)
+        {
+            //InitScriptEngine();
+            if (File.Exists(SCRIPT_FILE) && engine is ScriptEngine)
+                engine.ScriptContext = File.ReadAllText(SCRIPT_FILE);
+        }
+
+        private void btnEditScript_Click(object sender, EventArgs e)
+        {
+            if (File.Exists(SCRIPT_FILE))
+            {
+#if DEBUG
+                var ret = AutoItX.Run($"notepad2 /s cs {SCRIPT_FILE}", APPFOLDER);
+                //var ret = AutoItX.RunWait($"notepad2 /s cs {sf}", APPFOLDER);
+                //if (ret == 0 && engine is ScriptEngine) engine.ScriptContext = File.ReadAllText(sf);
+                //else MessageBox.Show("notepad2 run failed!");
+#else
+                AutoItX.Run($"notepad2 /s cs {SCRIPT_FILE}", APPFOLDER);
+#endif
+            }
+        }
+
+        private void chkOnTop_CheckedChanged(object sender, EventArgs e)
+        {
+            if (sender == chkOnTop)
+            {
+                TopMost = chkOnTop.Checked;
+                tsmiOnTop.Checked = chkOnTop.Checked;
+            }
+            else if (sender == tsmiOnTop)
+            {
+                chkOnTop.Checked = tsmiOnTop.Checked;
+            }
+        }
+
+        private void chkPause_CheckStateChanged(object sender, EventArgs e)
+        {
+            if (sender == chkPause)
+            {
+                if (engine is ScriptEngine) engine.Pausing = chkPause.Checked;
+                tsmiPause.Checked = chkPause.Checked;
+            }
+            else if (sender == tsmiPause)
+            {
+                chkPause.Checked = tsmiPause.Checked;
+            }
         }
 
         private void tsmiShowForm_Click(object sender, EventArgs e)
         {
-            if (!Visible) SetHide(false);
+            if (!Visible) SetHidden(false);
         }
 
         private void tsmiResetGateway_Click(object sender, EventArgs e)
@@ -155,74 +236,6 @@ namespace MiJia
             //Application.Exit();
             Close();
         }
-
-        private async void btnTest_Click(object sender, EventArgs e)
-        {
-            if (engine is ScriptEngine)
-            {
-                var ret = await engine.RunScript(true, true);
-            }
-        }
-
-        private void btnReloadScript_Click(object sender, EventArgs e)
-        {
-            //InitScriptEngine();
-            if (File.Exists(SCRIPT_FILE) && engine is ScriptEngine)
-                engine.ScriptContext = File.ReadAllText(SCRIPT_FILE);
-        }
-
-        private void btnEditScript_Click(object sender, EventArgs e)
-        {
-            if (File.Exists(SCRIPT_FILE))
-            {
-#if !DEBUG
-                AutoItX.Run($"notepad2 /s cs {SCRIPT_FILE}", APPFOLDER);
-#else
-                var ret = AutoItX.Run($"notepad2 /s cs {SCRIPT_FILE}", APPFOLDER);
-                //var ret = AutoItX.RunWait($"notepad2 /s cs {sf}", APPFOLDER);
-                //if (ret == 0 && engine is ScriptEngine) engine.ScriptContext = File.ReadAllText(sf);
-                //else MessageBox.Show("notepad2 run failed!");
-#endif
-            }
-        }
-
-        private void chkPause_CheckStateChanged(object sender, EventArgs e)
-        {
-            if (sender == chkPause)
-            {
-                if (engine is ScriptEngine) engine.Pausing = chkPause.Checked;
-                tsmiPause.Checked = chkPause.Checked;
-            }
-            else if (sender == tsmiPause)
-            {
-                chkPause.Checked = tsmiPause.Checked;
-            }
-        }
-
-        private void chkOnTop_CheckedChanged(object sender, EventArgs e)
-        {
-            if (sender == chkOnTop)
-            {
-                TopMost = chkOnTop.Checked;
-                tsmiOnTop.Checked = chkOnTop.Checked;
-            }
-            else if (sender == tsmiOnTop)
-            {
-                chkOnTop.Checked = tsmiOnTop.Checked;
-            }
-        }
-
-        private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
-        {
-#if !DEBUG
-            var ret = MessageBox.Show(this, "Exit?", "Question", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
-            if ( ret != DialogResult.Yes)
-            {
-                e.Cancel = true;
-            }
-#endif
-        }
-
     }
 
 }
